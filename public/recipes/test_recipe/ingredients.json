@@ -1,0 +1,22 @@
+[
+  { "name": "Flour", "amount": "500g" },
+  { "name": "Sugar", "amount": "100g" },
+  { "name": "Salt", "amount": "1 tsp" },
+  { "name": "Butter", "amount": "200g" },
+  { "name": "Eggs", "amount": "4" },
+  { "name": "Milk", "amount": "300ml" },
+  { "name": "Baking Powder", "amount": "2 tsp" },
+  { "name": "Vanilla Extract", "amount": "1 tsp" },
+  { "name": "Cocoa Powder", "amount": "100g" },
+  { "name": "Olive Oil", "amount": "50ml" },
+  { "name": "Water", "amount": "250ml" },
+  { "name": "Yeast", "amount": "7g" },
+  { "name": "Honey", "amount": "3 tbsp" },
+  { "name": "Lemon Zest", "amount": "1 tsp" },
+  { "name": "Nuts", "amount": "100g" },
+  { "name": "Cinnamon", "amount": "1/2 tsp" },
+  { "name": "Nutmeg", "amount": "1/4 tsp" },
+  { "name": "Rice Flour", "amount": "150g" },
+  { "name": "Cornstarch", "amount": "50g" },
+  { "name": "Soy Sauce", "amount": "2 tbsp" }
+]

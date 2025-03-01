@@ -1,0 +1,18 @@
+Pancakes Recipe Full Text
+
+Ingredients:
+- Flour: 1 cup
+- Egg: 1 large
+- Milk: 1 cup
+- Butter: 2 tbsp
+- Sugar: 1 tbsp
+- Salt: a pinch
+
+Instructions:
+1. Mix flour, sugar, and salt in a bowl.
+2. Beat in the egg and milk until smooth.
+3. Melt butter and stir it into the mixture.
+4. Heat a lightly oiled griddle over medium-high heat.
+5. Pour batter onto the griddle and cook until brown on both sides.
+
+Enjoy your pancakes! 
