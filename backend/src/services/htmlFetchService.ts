@@ -2,9 +2,9 @@ import axios from "axios";
 import * as cheerio from "cheerio";
 
 /**
- * Fetches HTML content from a given URL
+ * Fetches HTML content from a given URL and optimizes it for recipe extraction
  * @param url The URL to fetch HTML from
- * @returns The HTML content as a string or null if fetch fails
+ * @returns The optimized HTML content as a string or null if fetch fails
  */
 export const fetchHtmlFromUrl = async (url: string): Promise<string | null> => {
   try {
@@ -30,13 +30,11 @@ export const fetchHtmlFromUrl = async (url: string): Promise<string | null> => {
       },
       timeout: 15000, // 15 seconds timeout
       maxContentLength: 10 * 1024 * 1024, // 10MB max
-      validateStatus: (status: number) => status >= 200 && status < 400, // Accept 2xx and 3xx status codes
+      validateStatus: (status: number) => status >= 200 && status < 400,
     };
 
-    // Make the request
     const response = await axios.get(url, config);
 
-    // Check response
     if (!response.data || typeof response.data !== "string") {
       console.error(
         `Invalid response for URL: ${url}. Response is not a string.`
@@ -59,7 +57,6 @@ export const fetchHtmlFromUrl = async (url: string): Promise<string | null> => {
       )}%)`
     );
 
-    // Return optimized HTML content
     return optimizedHtml;
   } catch (error) {
     if (axios.isAxiosError(error)) {
@@ -85,16 +82,13 @@ export const fetchHtmlFromUrl = async (url: string): Promise<string | null> => {
  */
 function optimizeHtmlForRecipeExtraction(htmlContent: string): string {
   try {
-    // Load HTML content into cheerio
     const $ = cheerio.load(htmlContent);
 
-    // Remove all script and style tags
+    // Remove non-content elements
     $("script, style, noscript, iframe").remove();
-
-    // Remove all SVG elements
     $("svg").remove();
 
-    // Remove all image tags but keep their alt text as it might be useful
+    // Replace images with their alt text
     $("img").each(function (this: any) {
       const altText = $(this).attr("alt");
       if (altText) {
@@ -104,12 +98,12 @@ function optimizeHtmlForRecipeExtraction(htmlContent: string): string {
       }
     });
 
-    // Remove social media widgets, comments, and other non-essential elements
+    // Remove distracting elements
     $(
       '[class*="social"], [class*="share"], [class*="comment"], [class*="widget"], [class*="sidebar"], [class*="banner"], [class*="ad-"], [id*="ad-"]'
     ).remove();
 
-    // Look for the main content, prioritizing article tag or main content areas
+    // Find the main content, prioritizing recipe-specific containers
     let mainContent =
       $("article").html() ||
       $("main").html() ||
@@ -119,36 +113,29 @@ function optimizeHtmlForRecipeExtraction(htmlContent: string): string {
       $('[class*="post"]').html() ||
       $('[itemprop="recipeInstructions"]').parent().html();
 
-    // If we found a main content section, use it, otherwise use the body
     let resultHtml;
     if (mainContent) {
-      // Create a new cheerio instance with just the main content
+      // Further clean the main content
       const $main = cheerio.load(`<div>${mainContent}</div>`);
-
-      // Further cleanup within the main content
       $main("header, footer, nav, aside").remove();
-
       resultHtml = $main.html();
       console.log("Using extracted main content section for recipe extraction");
     } else {
-      // If no main content found, use the body but cleanup navigation, headers, footers
+      // Use body content with navigation elements removed
       $("header, footer, nav, aside").remove();
       resultHtml = $("body").html();
       console.log("No main content section found, using cleaned body content");
     }
 
-    // Final cleanup
     if (resultHtml) {
-      // Replace consecutive whitespace, newlines with a single space
+      // Normalize whitespace
       resultHtml = resultHtml.replace(/\s+/g, " ");
       return resultHtml;
     }
 
-    // If all else fails, return the original HTML without scripts and styles
     return $("body").html() || htmlContent;
   } catch (error) {
     console.error("Error optimizing HTML:", error);
-    // If there's an error in optimization, return the original content
     return htmlContent;
   }
 }

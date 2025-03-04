@@ -25,7 +25,7 @@ const CreateRecipePage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // New states for direct URL import
+  // URL import states
   const [url, setUrl] = useState("");
   const [importing, setImporting] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
@@ -157,7 +157,6 @@ const CreateRecipePage = () => {
     }
   };
 
-  // Handle direct import from URL
   const handleImport = async () => {
     setError(null);
     setImportStatus(null);
@@ -180,19 +179,16 @@ const CreateRecipePage = () => {
       setImporting(true);
       setImportStatus("Fetching recipe page...");
 
-      // Use the importRecipeFromUrl API to get recipe data
       const result = await recipeAPI.importRecipeFromUrl(url);
 
       if (result && result.recipe) {
         handleImportRecipe(result.recipe);
 
         if (result.recipeId) {
-          // The recipe was successfully saved to the database
           setImportStatus(
             "Recipe imported successfully! Redirecting to recipe page..."
           );
 
-          // Automatically navigate to the recipe page after 1 second
           setTimeout(() => {
             router.push(`/recipes/${result.recipeId}`);
           }, 1000);
@@ -252,7 +248,7 @@ const CreateRecipePage = () => {
             </Link>
           </div>
 
-          {/* Direct URL import section */}
+          {/* URL import section */}
           <div className="bg-white p-6 rounded-lg shadow-md mb-6">
             <h2 className="text-xl font-semibold mb-4">Quick Import</h2>
             <p className="mb-4">

@@ -22,23 +22,24 @@ export const extractRecipeFromHTML = async (
       `Received optimized HTML content length: ${htmlContent.length} characters`
     );
 
-    // The HTML content is already optimized by htmlFetchService
-    // Just check if we need to truncate it further for token limits
-    const contentLimit = 30000; // Higher limit since content is already cleaned
-
+    // Check if we need to truncate content for token limits
+    const contentLimit = 30000;
     let processedHtml = htmlContent;
+
     if (processedHtml.length > contentLimit) {
       console.log(
         `HTML content still exceeds OpenAI token limit (${processedHtml.length} chars). Truncating...`
       );
-      // Trim the end
+
+      // Keep beginning, truncate end where comments usually are
       processedHtml =
         processedHtml.substring(0, contentLimit - 500) +
-        "\n[CONTENT TRUNCATED FOR LENGTH]\n" +
-        console.log(`Truncated HTML is now ${processedHtml.length} characters`);
+        "\n[CONTENT TRUNCATED FOR LENGTH]\n";
+
+      console.log(`Truncated HTML is now ${processedHtml.length} characters`);
     }
 
-    // Prepare prompt for OpenAI with explicit instructions for both structured data and full text
+    // Prepare prompt for OpenAI
     const prompt = `
       I need you to carefully extract the complete recipe information from the HTML content below.
       
@@ -85,8 +86,8 @@ export const extractRecipeFromHTML = async (
         },
         { role: "user", content: prompt },
       ],
-      temperature: 0.2, // Slightly higher temperature for more flexibility
-      response_format: { type: "json_object" }, // Request JSON specifically
+      temperature: 0.2,
+      response_format: { type: "json_object" },
     });
 
     const responseContent = completion.choices[0].message.content?.trim();
@@ -96,7 +97,6 @@ export const extractRecipeFromHTML = async (
       return null;
     }
 
-    // Log a summary of the response
     console.log(
       "Received response from OpenAI (length: " + responseContent.length + "):",
       responseContent.substring(0, 300) + "..."
@@ -170,10 +170,9 @@ export const extractRecipeFromHTML = async (
       sourceUrl: sourceUrl || "",
     };
 
-    console.log("Successfully extracted recipe data");
     return recipe as IRecipeBase;
   } catch (error) {
-    console.error("Error extracting recipe from HTML:", error);
+    console.error("Error extracting recipe with OpenAI:", error);
     return null;
   }
 };
