@@ -1,88 +1,129 @@
+import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/router";
 
 interface RecipeCardProps {
   recipe: {
     _id: string;
     title: string;
     description: string;
-    cookingTime: number;
+    cookingTime?: number;
     imageUrl: string;
-    tags: string[];
     user: {
       _id: string;
       username: string;
     };
   };
+  isEditable?: boolean;
+  onDelete?: (recipeId: string) => void;
 }
 
-const RecipeCard = ({ recipe }: RecipeCardProps) => {
+const RecipeCard = ({
+  recipe,
+  isEditable = false,
+  onDelete,
+}: RecipeCardProps) => {
+  const router = useRouter();
+  const currentPath = router.pathname;
+
+  // Determine if the imageUrl is an absolute URL or a relative path
+  const isAbsoluteUrl =
+    recipe.imageUrl &&
+    (recipe.imageUrl.startsWith("http://") ||
+      recipe.imageUrl.startsWith("https://"));
+
+  // Set the image source based on whether it's an absolute URL or a relative path
+  const imgSrc = isAbsoluteUrl
+    ? recipe.imageUrl
+    : recipe.imageUrl
+    ? `/images/${recipe.imageUrl}`
+    : "/images/default-recipe.jpg";
+
+  // Get the from parameter based on the current page
+  const from =
+    currentPath === "/recipes/my-recipes" ? "/recipes/my-recipes" : "/recipes";
+
   return (
-    <div className="group relative bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
-      <div className="w-full h-48 bg-gray-200 relative">
-        {recipe.imageUrl ? (
-          <img
-            src={`/images/${recipe.imageUrl}`}
+    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200">
+      <Link
+        href={`/recipes/${recipe._id}?from=${encodeURIComponent(from)}`}
+        className="block"
+      >
+        <div className="relative h-48">
+          <Image
+            src={imgSrc}
             alt={recipe.title}
-            className="w-full h-full object-cover"
+            fill
+            style={{ objectFit: "cover" }}
           />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gray-100">
-            <svg
-              className="w-12 h-12 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-          </div>
-        )}
-      </div>
-      <div className="p-4">
-        <Link href={`/recipes/${recipe._id}`}>
-          <h3 className="text-lg font-medium text-gray-900 hover:text-indigo-600 transition-colors">
+          {recipe.cookingTime && (
+            <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-sm flex items-center">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4 mr-1"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              {recipe.cookingTime} min
+            </div>
+          )}
+        </div>
+        <div className="p-4">
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">
             {recipe.title}
           </h3>
-        </Link>
-        <p className="mt-1 text-sm text-gray-500 line-clamp-2">
-          {recipe.description}
-        </p>
-        <div className="mt-2 flex items-center text-sm text-gray-500">
-          <svg
-            className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400"
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            aria-hidden="true"
+          <p className="text-gray-600 text-sm line-clamp-2">
+            {recipe.description}
+          </p>
+        </div>
+      </Link>
+
+      {isEditable && (
+        <div className="px-4 pb-4 flex justify-end space-x-2">
+          <Link
+            href={`/recipes/edit/${recipe._id}`}
+            className="text-gray-600 hover:text-gray-800"
           >
-            <path
-              fillRule="evenodd"
-              d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-              clipRule="evenodd"
-            />
-          </svg>
-          <span>{recipe.cookingTime} min</span>
-        </div>
-        <div className="mt-2 flex flex-wrap gap-1">
-          {recipe.tags.map((tag, index) => (
-            <span
-              key={index}
-              className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800"
+            <span className="sr-only">Edit</span>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              viewBox="0 0 20 20"
+              fill="currentColor"
             >
-              {tag}
-            </span>
-          ))}
+              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+            </svg>
+          </Link>
+          {onDelete && (
+            <button
+              onClick={() => onDelete(recipe._id)}
+              className="text-red-500 hover:text-red-700"
+            >
+              <span className="sr-only">Delete</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+          )}
         </div>
-        <div className="mt-3 flex items-center text-sm">
-          <span className="text-gray-500">By {recipe.user.username}</span>
-        </div>
-      </div>
+      )}
     </div>
   );
 };

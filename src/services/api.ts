@@ -6,20 +6,18 @@ interface ApiError extends Error {
 }
 
 interface RegisterData {
-  name: string;
-  email: string;
+  username: string;
   password: string;
 }
 
 interface LoginData {
-  email: string;
+  username: string;
   password: string;
 }
 
 export interface User {
   _id: string;
-  name: string;
-  email: string;
+  username: string;
   token: string;
 }
 
@@ -234,6 +232,26 @@ export const recipeAPI = {
       headers: {
         Authorization: `Bearer ${token}`,
       },
+    });
+
+    return handleResponse(response);
+  },
+
+  // Import a recipe from a URL (requires authentication)
+  importRecipeFromUrl: async (url: string): Promise<any> => {
+    const token = getAuthToken();
+
+    if (!token) {
+      throw new Error("Authentication required");
+    }
+
+    const response = await fetch(`${API_URL}/recipes/import`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ url }),
     });
 
     return handleResponse(response);

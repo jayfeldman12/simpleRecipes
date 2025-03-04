@@ -1,3 +1,4 @@
+import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
@@ -7,11 +8,19 @@ import { recipeAPI } from "../../src/services/api";
 interface Recipe {
   _id: string;
   title: string;
-  image: string;
+  imageUrl: string;
   description: string;
-  ingredients: Array<{ name: string; amount: string }>;
-  instructions: Array<{ step: string }>;
-  createdBy: string;
+  ingredients: string[];
+  instructions: string[];
+  cookingTime?: number;
+  servings?: number;
+  fullRecipe?: string;
+  sourceUrl?: string;
+  user: {
+    _id: string;
+    username: string;
+  };
+  createdAt: string;
   isFavorite?: boolean;
 }
 
@@ -19,11 +28,19 @@ export default function RecipeDetail() {
   const router = useRouter();
   const { id } = router.query;
   const { user } = useAuth();
-
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [previousPage, setPreviousPage] = useState("/recipes");
+
+  useEffect(() => {
+    // Get the previous page from the query parameter
+    const from = router.query.from as string;
+    if (from) {
+      setPreviousPage(from);
+    }
+  }, [router.query.from]);
 
   useEffect(() => {
     const fetchRecipe = async () => {
@@ -60,6 +77,20 @@ export default function RecipeDetail() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!recipe) return;
+
+    if (window.confirm("Are you sure you want to delete this recipe?")) {
+      try {
+        await recipeAPI.deleteRecipe(recipe._id);
+        router.push("/recipes/my-recipes");
+      } catch (err) {
+        console.error("Failed to delete recipe:", err);
+        setError("Failed to delete recipe. Please try again.");
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -82,82 +113,227 @@ export default function RecipeDetail() {
   }
 
   return (
-    <div className="container max-w-4xl mx-auto my-8 px-4">
-      <Link
-        href="/"
-        className="inline-block mb-6 text-blue-500 hover:underline font-medium"
-      >
-        ← Back to Home
-      </Link>
+    <>
+      <Head>
+        <title>{recipe.title} | Simple Recipes</title>
+      </Head>
 
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        {recipe.image && (
-          <div className="h-64 sm:h-80 relative">
-            <img
-              src={recipe.image}
-              alt={recipe.title}
-              className="w-full h-full object-cover"
-            />
-            {user && (
-              <button
-                onClick={handleFavoriteToggle}
-                className="absolute top-4 right-4 p-2 rounded-full bg-white shadow-md hover:bg-gray-100"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className={`h-6 w-6 ${
-                    isFavorite ? "text-red-500" : "text-gray-400"
-                  }`}
-                  fill={isFavorite ? "currentColor" : "none"}
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={isFavorite ? "0" : "2"}
+      <div className="container max-w-4xl mx-auto my-8 px-4">
+        <Link
+          href={previousPage}
+          className="inline-block mb-6 text-blue-500 hover:underline font-medium"
+        >
+          ← Back to Recipes
+        </Link>
+
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          {recipe.imageUrl && (
+            <div className="h-64 sm:h-80 relative">
+              <img
+                src={recipe.imageUrl}
+                alt={recipe.title}
+                className="w-full h-full object-cover"
+              />
+              {user && (
+                <button
+                  onClick={handleFavoriteToggle}
+                  className="absolute top-4 right-4 p-2 rounded-full bg-white shadow-md hover:bg-gray-100"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                  />
-                </svg>
-              </button>
-            )}
-          </div>
-        )}
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className={`h-6 w-6 ${
+                      isFavorite ? "text-red-500" : "text-gray-400"
+                    }`}
+                    fill={isFavorite ? "currentColor" : "none"}
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={isFavorite ? "0" : "2"}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                    />
+                  </svg>
+                </button>
+              )}
+            </div>
+          )}
 
-        <div className="p-6">
-          <h1 className="text-3xl font-bold text-gray-800 mb-4">
-            {recipe.title}
-          </h1>
-          <p className="text-gray-600 mb-6">{recipe.description}</p>
+          <div className="p-6">
+            <div className="mb-6">
+              <div className="flex justify-between items-start mb-4">
+                <h1 className="text-3xl font-bold text-gray-800">
+                  {recipe.title}
+                </h1>
+                {user && user._id === recipe.user._id && (
+                  <div className="flex gap-2">
+                    <Link
+                      href={`/recipes/edit/${recipe._id}`}
+                      className="p-2 text-blue-600 hover:text-blue-800"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-6 w-6"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                        />
+                      </svg>
+                    </Link>
+                    <button
+                      onClick={handleDelete}
+                      className="p-2 text-red-600 hover:text-red-800"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-6 w-6"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+              </div>
+              <p className="text-gray-600 mb-4">{recipe.description}</p>
 
-          <div className="flex flex-col md:flex-row gap-8">
-            <div className="md:w-1/3">
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <h2 className="text-xl font-semibold mb-4">Ingredients</h2>
-                <ul className="space-y-2">
-                  {recipe.ingredients.map((ingredient, index) => (
-                    <li key={index} className="flex justify-between">
-                      <span className="font-medium">{ingredient.name}</span>
-                      <span className="text-gray-600">{ingredient.amount}</span>
-                    </li>
-                  ))}
-                </ul>
+              {/* Display metadata: cooking time, servings, source */}
+              <div className="flex flex-wrap gap-4 text-sm text-gray-600 mb-4">
+                {recipe.cookingTime && (
+                  <div className="flex items-center">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5 mr-1 text-gray-500"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    <span>{recipe.cookingTime} minutes</span>
+                  </div>
+                )}
+
+                {recipe.servings && (
+                  <div className="flex items-center">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5 mr-1 text-gray-500"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                      />
+                    </svg>
+                    <span>{recipe.servings} servings</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Source URL and Full Recipe links */}
+              <div className="flex flex-wrap gap-4">
+                {recipe.sourceUrl && (
+                  <a
+                    href={recipe.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-500 hover:underline flex items-center"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5 mr-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                      />
+                    </svg>
+                    View Original Recipe
+                  </a>
+                )}
+
+                {recipe.fullRecipe && (
+                  <Link
+                    href={`/recipes/${recipe._id}/full`}
+                    className="text-blue-500 hover:underline flex items-center"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5 mr-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
+                    </svg>
+                    View Full Recipe
+                  </Link>
+                )}
               </div>
             </div>
 
-            <div className="md:w-2/3">
-              <h2 className="text-xl font-semibold mb-4">Instructions</h2>
-              <ol className="space-y-4">
-                {recipe.instructions.map((instruction, index) => (
-                  <li key={index} className="ml-6 list-decimal">
-                    <p>{instruction.step}</p>
-                  </li>
-                ))}
-              </ol>
+            <div className="flex flex-col md:flex-row gap-8">
+              <div className="md:w-1/3">
+                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                  <h2 className="text-xl font-semibold mb-4">Ingredients</h2>
+                  <ul className="space-y-2">
+                    {recipe.ingredients.map((ingredient, index) => (
+                      <li key={index} className="text-gray-700">
+                        {ingredient}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              <div className="md:w-2/3">
+                <h2 className="text-xl font-semibold mb-4">Instructions</h2>
+                <ol className="space-y-4">
+                  {recipe.instructions.map((instruction, index) => (
+                    <li key={index} className="ml-6 list-decimal">
+                      <p className="text-gray-700">{instruction}</p>
+                    </li>
+                  ))}
+                </ol>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

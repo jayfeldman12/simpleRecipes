@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import Recipe from "../models/Recipe";
 import User from "../models/User";
+import { fetchHtmlFromUrl } from "../services/htmlFetchService";
+import { extractRecipeFromHTML } from "../services/openaiService";
 import { IAuthRequest } from "../types";
 
 // @desc    Get all recipes
@@ -14,16 +16,10 @@ export const getRecipes = async (
     const pageSize = 10;
     const page = Number(req.query.page) || 1;
 
-    // Allow filtering by tag
-    const filter: { tags?: { $in: string[] } } = {};
-    if (req.query.tag) {
-      filter.tags = { $in: [req.query.tag as string] };
-    }
+    const count = await Recipe.countDocuments();
 
-    const count = await Recipe.countDocuments(filter);
-
-    const recipes = await Recipe.find(filter)
-      .populate("user", "name")
+    const recipes = await Recipe.find()
+      .populate("user", "username")
       .limit(pageSize)
       .skip(pageSize * (page - 1))
       .sort({ createdAt: -1 });
@@ -90,7 +86,6 @@ export const createRecipe = async (
       cookingTime,
       servings,
       imageUrl,
-      tags,
     } = req.body;
 
     const recipe = new Recipe({
@@ -98,10 +93,9 @@ export const createRecipe = async (
       description,
       ingredients: Array.isArray(ingredients) ? ingredients : [ingredients],
       instructions: Array.isArray(instructions) ? instructions : [instructions],
-      cookingTime,
-      servings,
+      cookingTime: cookingTime || undefined,
+      servings: servings || undefined,
       imageUrl: imageUrl || "default-recipe.jpg",
-      tags: tags || [],
       user: req.user._id,
     });
 
@@ -134,7 +128,6 @@ export const updateRecipe = async (
       cookingTime,
       servings,
       imageUrl,
-      tags,
     } = req.body;
 
     const recipe = await Recipe.findById(req.params.id);
@@ -144,31 +137,33 @@ export const updateRecipe = async (
       return;
     }
 
-    // Check if user owns the recipe
+    // Check if the logged in user is the owner of the recipe
     if (recipe.user.toString() !== req.user._id.toString()) {
-      res
-        .status(403)
-        .json({ message: "User not authorized to update this recipe" });
+      res.status(403).json({ message: "Not authorized to update this recipe" });
       return;
     }
 
     recipe.title = title || recipe.title;
     recipe.description = description || recipe.description;
-    recipe.ingredients = ingredients || recipe.ingredients;
-    recipe.instructions = instructions || recipe.instructions;
-    recipe.cookingTime = cookingTime || recipe.cookingTime;
-    recipe.servings = servings || recipe.servings;
+    recipe.ingredients = ingredients
+      ? Array.isArray(ingredients)
+        ? ingredients
+        : [ingredients]
+      : recipe.ingredients;
+    recipe.instructions = instructions
+      ? Array.isArray(instructions)
+        ? instructions
+        : [instructions]
+      : recipe.instructions;
+    recipe.cookingTime =
+      cookingTime !== undefined ? cookingTime : recipe.cookingTime;
+    recipe.servings = servings !== undefined ? servings : recipe.servings;
     recipe.imageUrl = imageUrl || recipe.imageUrl;
-    recipe.tags = tags || recipe.tags;
 
     const updatedRecipe = await recipe.save();
     res.json(updatedRecipe);
-  } catch (error: any) {
+  } catch (error) {
     console.error(error);
-    if (error.kind === "ObjectId") {
-      res.status(404).json({ message: "Recipe not found" });
-      return;
-    }
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -261,5 +256,71 @@ export const getFavoriteRecipes = async (
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+// @desc    Import recipe from URL
+// @route   POST /api/recipes/import
+// @access  Private
+export const importRecipeFromUrl = async (req: IAuthRequest, res: Response) => {
+  try {
+    // Check authentication
+    if (!req.user) {
+      return res.status(401).json({ message: "Not authorized" });
+    }
+
+    const { url } = req.body;
+
+    // Verify that url is provided
+    if (!url) {
+      return res.status(400).json({ message: "URL is required" });
+    }
+
+    // Fetch HTML content from the URL
+    const htmlContent = await fetchHtmlFromUrl(url);
+    if (!htmlContent) {
+      return res
+        .status(400)
+        .json({ message: "Failed to fetch content from URL" });
+    }
+
+    console.log(
+      `Successfully fetched HTML from ${url}, length: ${htmlContent.length} characters`
+    );
+
+    // Extract recipe data using OpenAI, passing the source URL
+    const recipeData = await extractRecipeFromHTML(htmlContent, url);
+    if (!recipeData) {
+      return res
+        .status(400)
+        .json({ message: "Failed to extract recipe data from the URL" });
+    }
+
+    console.log("Successfully extracted recipe data:", recipeData.title);
+
+    // Create a new recipe
+    const userId = req.user._id;
+    const recipe = new Recipe({
+      ...recipeData,
+      user: userId,
+      sourceUrl: url, // Also set it explicitly here to ensure it's included
+      imageUrl: recipeData.imageUrl || "default-recipe.jpg", // Set default image if none provided
+    });
+
+    // Save to database
+    const savedRecipe = await recipe.save();
+    console.log(`Recipe saved with ID: ${savedRecipe._id}`);
+
+    // Return the recipe data and the ID for redirection
+    return res.status(201).json({
+      message: "Recipe imported successfully",
+      recipe: recipeData,
+      recipeId: savedRecipe._id,
+    });
+  } catch (error) {
+    console.error("Error importing recipe:", error);
+    return res
+      .status(500)
+      .json({ message: "Server error while importing recipe" });
   }
 };

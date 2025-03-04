@@ -81,7 +81,6 @@ const importData = async (): Promise<void> => {
         cookingTime: 25,
         servings: 4,
         imageUrl: "spaghetti-carbonara.jpg",
-        tags: ["Italian", "Pasta", "Quick"],
         user: createdUsers[0]._id,
       },
       {
@@ -119,7 +118,6 @@ const importData = async (): Promise<void> => {
         cookingTime: 60,
         servings: 6,
         imageUrl: "chicken-tikka-masala.jpg",
-        tags: ["Indian", "Curry", "Chicken"],
         user: createdUsers[1]._id,
       },
     ];

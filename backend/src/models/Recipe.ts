@@ -27,22 +27,16 @@ const RecipeSchema = new Schema<IRecipeDocument>(
     ],
     cookingTime: {
       type: Number,
-      required: [true, "Cooking time is required"],
+      required: false,
     },
     servings: {
       type: Number,
-      required: [true, "Number of servings is required"],
+      required: false,
     },
     imageUrl: {
       type: String,
       default: "default-recipe.jpg",
     },
-    tags: [
-      {
-        type: String,
-        trim: true,
-      },
-    ],
     user: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -51,6 +45,16 @@ const RecipeSchema = new Schema<IRecipeDocument>(
     createdAt: {
       type: Date,
       default: Date.now,
+    },
+    // Add fullRecipe field to store the original recipe text
+    fullRecipe: {
+      type: String,
+      required: false,
+    },
+    // Add sourceUrl field to store where the recipe came from
+    sourceUrl: {
+      type: String,
+      required: false,
     },
   },
   {
@@ -64,6 +68,8 @@ const RecipeSchema = new Schema<IRecipeDocument>(
 RecipeSchema.virtual("formattedCookingTime").get(function (
   this: IRecipeDocument
 ) {
+  if (!this.cookingTime) return "Not specified";
+
   const hours = Math.floor(this.cookingTime / 60);
   const minutes = this.cookingTime % 60;
 

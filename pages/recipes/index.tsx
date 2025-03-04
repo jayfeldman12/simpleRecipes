@@ -8,9 +8,8 @@ interface Recipe {
   _id: string;
   title: string;
   description: string;
-  cookingTime: number;
+  cookingTime?: number;
   imageUrl: string;
-  tags: string[];
   user: {
     _id: string;
     username: string;
@@ -33,7 +32,18 @@ export default function RecipeList() {
         }
 
         const data = await response.json();
-        setRecipes(data);
+
+        // Ensure we have an array of recipes
+        if (Array.isArray(data)) {
+          setRecipes(data);
+        } else if (data && Array.isArray(data.recipes)) {
+          // Handle case where API returns { recipes: [...] }
+          setRecipes(data.recipes);
+        } else {
+          console.error("Unexpected data format:", data);
+          setRecipes([]);
+          setError("Received invalid data format from server");
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred");
         console.error(err);
@@ -68,7 +78,7 @@ export default function RecipeList() {
           </div>
         ) : error ? (
           <div className="text-center text-red-500 my-12">{error}</div>
-        ) : recipes.length === 0 ? (
+        ) : recipes && recipes.length === 0 ? (
           <div className="text-center my-12">
             <p className="text-gray-500 text-lg">No recipes found.</p>
             {user && (
@@ -84,9 +94,10 @@ export default function RecipeList() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-y-10 gap-x-6 sm:grid-cols-2 lg:grid-cols-3 xl:gap-x-8">
-            {recipes.map((recipe) => (
-              <RecipeCard key={recipe._id} recipe={recipe} />
-            ))}
+            {recipes &&
+              recipes.map((recipe) => (
+                <RecipeCard key={recipe._id} recipe={recipe} />
+              ))}
           </div>
         )}
       </div>

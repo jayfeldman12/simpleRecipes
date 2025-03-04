@@ -14,12 +14,13 @@ export interface IRecipeBase {
   description: string;
   ingredients: string[];
   instructions: string[];
-  cookingTime: number;
-  servings: number;
+  cookingTime?: number;
+  servings?: number;
   imageUrl: string;
-  tags: string[];
   user: Types.ObjectId;
   createdAt: Date;
+  fullRecipe?: string;
+  sourceUrl?: string;
 }
 
 // Document interfaces (for instance methods)

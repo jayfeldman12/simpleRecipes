@@ -6,6 +6,7 @@ import {
   getRecipeById,
   getRecipes,
   getUserRecipes,
+  importRecipeFromUrl,
   updateRecipe,
 } from "../controllers/recipeController";
 import { protect } from "../middleware/authMiddleware";
@@ -15,6 +16,7 @@ const router = express.Router();
 // Protected routes with specific paths (must be before /:id routes)
 router.get("/user/recipes", protect, getUserRecipes);
 router.get("/user/favorites", protect, getFavoriteRecipes);
+router.post("/import", protect, importRecipeFromUrl);
 
 // Public routes
 router.get("/", getRecipes);
