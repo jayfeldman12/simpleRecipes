@@ -31,14 +31,11 @@ export const extractRecipeFromHTML = async (
       console.log(
         `HTML content still exceeds OpenAI token limit (${processedHtml.length} chars). Truncating...`
       );
-      // Keep beginning and end, trim middle
-      const halfLimit = contentLimit / 2;
+      // Trim the end
       processedHtml =
-        processedHtml.substring(0, halfLimit) +
+        processedHtml.substring(0, contentLimit - 500) +
         "\n[CONTENT TRUNCATED FOR LENGTH]\n" +
-        processedHtml.substring(processedHtml.length - halfLimit);
-
-      console.log(`Truncated HTML is now ${processedHtml.length} characters`);
+        console.log(`Truncated HTML is now ${processedHtml.length} characters`);
     }
 
     // Prepare prompt for OpenAI with explicit instructions for both structured data and full text
