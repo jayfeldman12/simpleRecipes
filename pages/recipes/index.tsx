@@ -27,7 +27,7 @@ export default function RecipeList() {
   useEffect(() => {
     const fetchRecipes = async () => {
       try {
-        const response = await fetch("http://localhost:5000/api/recipes");
+        const response = await fetch("/api/recipes");
 
         if (!response.ok) {
           throw new Error("Failed to fetch recipes");

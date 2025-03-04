@@ -26,6 +26,12 @@ const nextConfig = {
       },
     ];
   },
+  // Explicitly enable environment variables
+  env: {
+    JWT_SECRET: process.env.JWT_SECRET,
+    MONGODB_URI: process.env.MONGODB_URI,
+    NEXT_PUBLIC_VERCEL_URL: process.env.NEXT_PUBLIC_VERCEL_URL,
+  },
 };
 
 module.exports = nextConfig;
