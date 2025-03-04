@@ -116,9 +116,11 @@ export default function RecipeDetail() {
     <>
       <Head>
         <title>{recipe.title} | Simple Recipes</title>
+        <meta name="description" content={recipe.description} />
       </Head>
 
-      <div className="container max-w-4xl mx-auto my-8 px-4">
+      {/* Desktop Version */}
+      <div className="container max-w-4xl mx-auto my-8 px-4 md:block hidden">
         <Link
           href={previousPage}
           className="inline-block mb-6 text-blue-500 hover:underline font-medium"
@@ -306,32 +308,165 @@ export default function RecipeDetail() {
               </div>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-8">
-              <div className="md:w-1/3">
-                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                  <h2 className="text-xl font-semibold mb-4">Ingredients</h2>
-                  <ul className="space-y-2">
-                    {recipe.ingredients.map((ingredient, index) => (
-                      <li key={index} className="text-gray-700">
-                        {ingredient}
-                      </li>
-                    ))}
-                  </ul>
+            <div className="flex flex-row gap-8">
+              <div className="w-1/3">
+                <div className="bg-gray-50 rounded-lg border border-gray-200 h-80 overflow-y-auto">
+                  <div className="sticky top-0 bg-gray-50 z-10 p-4 pb-2 border-b border-gray-100">
+                    <h2 className="text-xl font-semibold">Ingredients</h2>
+                  </div>
+                  <div className="px-4 pb-4">
+                    <ul className="space-y-2 mt-2">
+                      {recipe.ingredients.map((ingredient, index) => (
+                        <li key={index} className="text-gray-700">
+                          {ingredient}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               </div>
 
-              <div className="md:w-2/3">
-                <h2 className="text-xl font-semibold mb-4">Instructions</h2>
-                <ol className="space-y-4">
-                  {recipe.instructions.map((instruction, index) => (
-                    <li key={index} className="ml-6 list-decimal">
-                      <p className="text-gray-700">{instruction}</p>
-                    </li>
-                  ))}
-                </ol>
+              <div className="w-2/3">
+                <div className="h-80 overflow-y-auto pr-4">
+                  <div className="sticky top-0 bg-white z-10 pb-2 border-b border-gray-100">
+                    <h2 className="text-xl font-semibold">Instructions</h2>
+                  </div>
+                  <ol className="space-y-4 mt-4">
+                    {recipe.instructions.map((instruction, index) => (
+                      <li key={index} className="ml-6 list-decimal">
+                        <p className="text-gray-700">{instruction}</p>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Mobile Version - Fixed layout to prevent page scrolling */}
+      <div className="md:hidden fixed inset-0 flex flex-col overflow-hidden bg-white">
+        {/* Header with Back Button */}
+        <div className="bg-white py-2 px-3 border-b border-gray-200 sticky top-0 z-10">
+          <div className="flex justify-between items-center">
+            <Link
+              href={previousPage}
+              className="text-blue-500 flex items-center"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 mr-1"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+              Back
+            </Link>
+            {user && (
+              <button onClick={handleFavoriteToggle} className="p-1">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className={`h-5 w-5 ${
+                    isFavorite ? "text-red-500" : "text-gray-400"
+                  }`}
+                  fill={isFavorite ? "currentColor" : "none"}
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={isFavorite ? "0" : "2"}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                  />
+                </svg>
+              </button>
+            )}
+          </div>
+          <h1 className="text-xl font-bold text-gray-800 mt-1">
+            {recipe.title}
+          </h1>
+          <p className="text-gray-600 text-xs mt-1 line-clamp-2">
+            {recipe.description}
+          </p>
+        </div>
+
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Ingredients Section - Top 1/3 */}
+          <div className="bg-gray-50 border-b border-gray-200 h-2/5 overflow-y-auto">
+            <div className="sticky top-0 bg-gray-50 z-10 py-1 px-3 border-b border-gray-100">
+              <h2 className="text-base font-semibold">Ingredients</h2>
+            </div>
+            <ul className="space-y-1 p-3 pt-2">
+              {recipe.ingredients.map((ingredient, index) => (
+                <li key={index} className="text-gray-700 text-sm">
+                  {ingredient}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Instructions Section - Bottom 2/3 */}
+          <div className="flex-1 h-3/5 overflow-y-auto">
+            <div className="sticky top-0 bg-white z-10 py-1 px-3 border-b border-gray-100">
+              <h2 className="text-base font-semibold">Instructions</h2>
+            </div>
+            <ol className="space-y-3 p-3 pt-2">
+              {recipe.instructions.map((instruction, index) => (
+                <li key={index} className="ml-5 list-decimal text-sm">
+                  <p className="text-gray-700">{instruction}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </div>
+
+        {/* Footer Actions */}
+        <div className="bg-white border-t border-gray-200 py-2 px-3 z-10">
+          <div className="grid grid-cols-2 gap-2">
+            {recipe.fullRecipe && (
+              <Link
+                href={`/recipes/${recipe._id}/full`}
+                className="bg-blue-100 text-blue-600 py-1 px-3 rounded-md text-center text-xs"
+              >
+                View Full Recipe
+              </Link>
+            )}
+            {recipe.sourceUrl && (
+              <a
+                href={recipe.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-blue-100 text-blue-600 py-1 px-3 rounded-md text-center text-xs"
+              >
+                View Original
+              </a>
+            )}
+          </div>
+          {user && user._id === recipe.user._id && (
+            <div className="grid grid-cols-2 gap-2 mt-1">
+              <Link
+                href={`/recipes/edit/${recipe._id}`}
+                className="bg-gray-100 text-gray-600 py-1 px-3 rounded-md text-center text-xs"
+              >
+                Edit Recipe
+              </Link>
+              <button
+                onClick={handleDelete}
+                className="bg-red-100 text-red-600 py-1 px-3 rounded-md text-center text-xs"
+              >
+                Delete Recipe
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </>
