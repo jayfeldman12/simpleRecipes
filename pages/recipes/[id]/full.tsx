@@ -104,10 +104,10 @@ export default function FullRecipe() {
 
           {recipe.fullRecipe ? (
             <div className="prose max-w-none">
-              {/* Display the full recipe content in a pre tag to preserve formatting */}
-              <pre className="whitespace-pre-wrap font-sans text-gray-800 text-base">
+              {/* Display the full recipe content with better formatting */}
+              <div className="whitespace-pre-line font-sans text-gray-800 text-base leading-relaxed">
                 {recipe.fullRecipe}
-              </pre>
+              </div>
             </div>
           ) : (
             <p className="text-gray-600">

@@ -1,205 +1,232 @@
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useState } from "react";
+import React, { useState } from "react";
 import ProtectedRoute from "../../src/components/ProtectedRoute";
-import RecipeImportForm from "../../src/components/RecipeImportForm";
 import { recipeAPI } from "../../src/services/api";
 
 interface Ingredient {
-  name: string;
   amount: string;
-}
-
-interface Instruction {
-  step: string;
+  name: string;
 }
 
 const CreateRecipePage = () => {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [image, setImage] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   const [prepTime, setPrepTime] = useState("");
   const [cookTime, setCookTime] = useState("");
   const [servings, setServings] = useState("");
   const [ingredients, setIngredients] = useState<Ingredient[]>([
-    { name: "", amount: "" },
+    { amount: "", name: "" },
   ]);
-  const [instructions, setInstructions] = useState<Instruction[]>([
-    { step: "" },
-  ]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [showImportForm, setShowImportForm] = useState(false);
-  const [url, setUrl] = useState("");
+  const [instructions, setInstructions] = useState<string[]>([""]);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleIngredientChange = (
-    index: number,
-    field: "name" | "amount",
-    value: string
-  ) => {
-    const updatedIngredients = [...ingredients];
-    updatedIngredients[index][field] = value;
-    setIngredients(updatedIngredients);
-  };
-
-  const handleAddIngredient = () => {
-    setIngredients([...ingredients, { name: "", amount: "" }]);
-  };
-
-  const handleRemoveIngredient = (index: number) => {
-    if (ingredients.length > 1) {
-      const updatedIngredients = [...ingredients];
-      updatedIngredients.splice(index, 1);
-      setIngredients(updatedIngredients);
-    }
-  };
-
-  const handleInstructionChange = (index: number, value: string) => {
-    const updatedInstructions = [...instructions];
-    updatedInstructions[index].step = value;
-    setInstructions(updatedInstructions);
-  };
-
-  const handleAddInstruction = () => {
-    setInstructions([...instructions, { step: "" }]);
-  };
-
-  const handleRemoveInstruction = (index: number) => {
-    if (instructions.length > 1) {
-      const updatedInstructions = [...instructions];
-      updatedInstructions.splice(index, 1);
-      setInstructions(updatedInstructions);
-    }
-  };
+  // New states for direct URL import
+  const [url, setUrl] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importStatus, setImportStatus] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
 
-    // Basic validation
     if (!title || !description) {
-      setError("Title and description are required");
+      setError("Title and description are required.");
       return;
     }
 
-    if (ingredients.some((ing) => !ing.name || !ing.amount)) {
-      setError("All ingredients must have both a name and amount");
+    // Filter out empty ingredients and instructions
+    const filteredIngredients = ingredients.filter(
+      (ing) => ing.amount.trim() || ing.name.trim()
+    );
+    const filteredInstructions = instructions.filter((inst) => inst.trim());
+
+    if (filteredIngredients.length === 0) {
+      setError("At least one ingredient is required.");
       return;
     }
 
-    if (instructions.some((inst) => !inst.step)) {
-      setError("All instruction steps must be filled in");
+    if (filteredInstructions.length === 0) {
+      setError("At least one instruction is required.");
       return;
     }
-
-    const recipeData = {
-      title,
-      description,
-      imageUrl: image,
-      cookTime: parseInt(cookTime) || 0,
-      servings: parseInt(servings) || 0,
-      ingredients,
-      instructions,
-    };
 
     try {
-      setLoading(true);
-      setError(null);
+      setIsLoading(true);
 
-      await recipeAPI.createRecipe(recipeData);
-      router.push("/recipes/my-recipes");
-    } catch (err) {
-      console.error("Failed to create recipe:", err);
-      setError("Failed to create recipe. Please try again.");
+      const recipeData = {
+        title,
+        description,
+        imageUrl: imageUrl || undefined,
+        prepTimeMinutes: prepTime ? parseInt(prepTime) : undefined,
+        cookTimeMinutes: cookTime ? parseInt(cookTime) : undefined,
+        servings: servings ? parseInt(servings) : undefined,
+        ingredients: filteredIngredients,
+        instructions: filteredInstructions,
+      };
+
+      const result = await recipeAPI.createRecipe(recipeData);
+      router.push(`/recipes/${result.id}`);
+    } catch (err: any) {
+      console.error("Error creating recipe:", err);
+      setError(
+        err.message || "Failed to create recipe. Please try again later."
+      );
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const handleImportRecipe = (recipe: any) => {
-    console.log("recipe that came back", recipe);
-    // Set the form values from the imported recipe
-    setTitle(recipe.title || "");
-    setDescription(recipe.description || "");
+  const handleAddIngredient = () => {
+    setIngredients([...ingredients, { amount: "", name: "" }]);
+  };
 
-    // For cooking time, we convert it to string format for the form
-    if (recipe.cookingTime) {
-      setCookTime(recipe.cookingTime.toString());
-    }
+  const handleRemoveIngredient = (index: number) => {
+    const newIngredients = [...ingredients];
+    newIngredients.splice(index, 1);
+    setIngredients(newIngredients);
+  };
 
-    // For servings, we convert it to string format for the form
-    if (recipe.servings) {
-      setServings(recipe.servings.toString());
-    }
+  const handleIngredientChange = (
+    index: number,
+    field: keyof Ingredient,
+    value: string
+  ) => {
+    const newIngredients = [...ingredients];
+    newIngredients[index][field] = value;
+    setIngredients(newIngredients);
+  };
 
-    // For image URL
-    if (recipe.imageUrl && recipe.imageUrl !== "default-recipe.jpg") {
-      setImage(recipe.imageUrl);
-    }
+  const handleAddInstruction = () => {
+    setInstructions([...instructions, ""]);
+  };
 
-    // For ingredients, we need to transform from string[] to Ingredient[]
-    if (recipe.ingredients && recipe.ingredients.length > 0) {
-      const formattedIngredients = recipe.ingredients.map(
-        (ingredient: string) => {
-          // Try to split the ingredient into name and amount
-          const match = ingredient.match(
-            /([\d\/\.\s]+\s*(?:cup|cups|tablespoon|tablespoons|tbsp|tsp|teaspoon|teaspoons|g|kg|lb|lbs|oz|ml|l|pinch|to taste|handful|clove|cloves)?\s*(?:of)?)(.*)/i
-          );
+  const handleRemoveInstruction = (index: number) => {
+    const newInstructions = [...instructions];
+    newInstructions.splice(index, 1);
+    setInstructions(newInstructions);
+  };
 
-          if (match && match.length >= 3) {
+  const handleInstructionChange = (index: number, value: string) => {
+    const newInstructions = [...instructions];
+    newInstructions[index] = value;
+    setInstructions(newInstructions);
+  };
+
+  const handleImportRecipe = (recipeData: any) => {
+    // Update page title to indicate we're editing an imported recipe
+    document.title = `Edit Imported Recipe - ${recipeData.title || "Recipe"}`;
+
+    // Update form with imported recipe data
+    setTitle(recipeData.title || "");
+    setDescription(recipeData.description || "");
+    setCookTime(
+      recipeData.cookTimeMinutes?.toString() ||
+        recipeData.cookingTime?.toString() ||
+        ""
+    );
+    setServings(recipeData.servings?.toString() || "");
+    setPrepTime(recipeData.prepTimeMinutes?.toString() || "");
+    setImageUrl(recipeData.imageUrl || "");
+
+    // Parse ingredients
+    if (recipeData.ingredients && recipeData.ingredients.length > 0) {
+      const parsedIngredients = recipeData.ingredients.map(
+        (ingredientStr: string) => {
+          // Try to extract amount and name with a regex
+          const match = ingredientStr.match(/^([\d\s\/\.\,]+)(.+)$/);
+          if (match) {
             return {
               amount: match[1].trim(),
               name: match[2].trim(),
             };
           }
-
-          return { amount: "", name: ingredient.trim() };
+          return { amount: "", name: ingredientStr.trim() };
         }
       );
-
-      setIngredients(formattedIngredients);
+      setIngredients(parsedIngredients);
     }
 
-    // For instructions, transform from string[] to Instruction[]
-    if (recipe.instructions && recipe.instructions.length > 0) {
-      const formattedInstructions = recipe.instructions.map(
-        (instruction: string) => {
-          return { step: instruction.trim() };
-        }
-      );
-
-      setInstructions(formattedInstructions);
+    // Set instructions
+    if (recipeData.instructions && recipeData.instructions.length > 0) {
+      setInstructions(recipeData.instructions);
     }
-
-    // Hide the import form
-    setShowImportForm(false);
   };
 
-  const handleImport = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!url.trim()) return;
+  // Handle direct import from URL
+  const handleImport = async () => {
+    setError(null);
+    setImportStatus(null);
+
+    // Validate URL
+    if (!url.trim()) {
+      setError("Please enter a URL");
+      return;
+    }
 
     try {
-      setIsLoading(true);
-      const response = await recipeAPI.importRecipeFromUrl(url);
-      console.log("res", response);
+      const urlToTest = url.match(/^https?:\/\//) ? url : `https://${url}`;
+      new URL(urlToTest);
+    } catch (err) {
+      setError("Please enter a valid URL");
+      return;
+    }
 
-      // Check if the response has a recipeId in the expected structure
-      if (response && response.recipeId) {
-        router.push(`/recipes/${response.recipeId}`);
-      } else if (response && response.recipe && response.recipe._id) {
-        // Fallback to check if the recipe ID is nested in the recipe object
-        router.push(`/recipes/${response.recipe._id}`);
+    try {
+      setImporting(true);
+      setImportStatus("Fetching recipe page...");
+
+      // Use the importRecipeFromUrl API to get recipe data
+      const result = await recipeAPI.importRecipeFromUrl(url);
+
+      if (result && result.recipe) {
+        handleImportRecipe(result.recipe);
+
+        if (result.recipeId) {
+          // The recipe was successfully saved to the database
+          setImportStatus(
+            "Recipe imported successfully! Redirecting to recipe page..."
+          );
+
+          // Automatically navigate to the recipe page after 1 second
+          setTimeout(() => {
+            router.push(`/recipes/${result.recipeId}`);
+          }, 1000);
+        } else {
+          setImportStatus(
+            "Recipe imported successfully! You can make additional edits below."
+          );
+        }
+
+        setUrl("");
       } else {
-        setError("Failed to import recipe. Invalid response format.");
+        setError(
+          "Could not import recipe. Please check the URL and try again."
+        );
       }
-    } catch (error) {
-      console.error("Error importing recipe:", error);
-      setError("Failed to import recipe. Please try again.");
+    } catch (err: any) {
+      console.error("Error importing recipe:", err);
+      if (err.status === 400) {
+        setError(
+          "Failed to extract recipe data from the provided URL. Please make sure it's a valid recipe page."
+        );
+      } else if (err.status === 401) {
+        setError("You need to be logged in to import recipes.");
+      } else if (err.status === 500) {
+        setError(
+          "Server error. Please try again later or try a different URL."
+        );
+      } else {
+        setError(
+          err.message || "Failed to import recipe. Please try a different URL."
+        );
+      }
     } finally {
-      setIsLoading(false);
+      setImporting(false);
     }
   };
 
@@ -225,248 +252,301 @@ const CreateRecipePage = () => {
             </Link>
           </div>
 
-          {/* Import from URL option */}
-          {!showImportForm ? (
-            <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-              <h2 className="text-xl font-semibold mb-4">Quick Import</h2>
-              <p className="mb-4">
-                Have a recipe from another website? Import it automatically by
-                providing the URL.
-              </p>
+          {/* Direct URL import section */}
+          <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+            <h2 className="text-xl font-semibold mb-4">Quick Import</h2>
+            <p className="mb-4">
+              Have a recipe from another website? Import it automatically by
+              providing the URL.
+            </p>
+
+            {importStatus && !error && (
+              <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
+                <div dangerouslySetInnerHTML={{ __html: importStatus }} />
+              </div>
+            )}
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleImport();
+              }}
+              className="flex items-center gap-3"
+            >
+              <input
+                type="url"
+                placeholder="https://example.com/recipe"
+                value={url}
+                onChange={(e) => {
+                  setUrl(e.target.value);
+                  setError(null);
+                }}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={importing}
+              />
               <button
-                type="button"
-                onClick={() => setShowImportForm(true)}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                type="submit"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 whitespace-nowrap flex items-center"
+                disabled={importing}
               >
-                Import from URL
+                {importing ? (
+                  <>
+                    <svg
+                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Importing...
+                  </>
+                ) : (
+                  "Import Recipe"
+                )}
               </button>
-            </div>
-          ) : (
-            <RecipeImportForm onCancel={() => setShowImportForm(false)} />
-          )}
+            </form>
+            <p className="text-sm text-gray-500 mt-1">
+              Paste a URL to a recipe page and we'll automatically extract the
+              recipe details
+            </p>
+          </div>
 
           {/* Manual recipe creation form */}
-          {!showImportForm && (
-            <div className="max-w-3xl mx-auto">
-              <h1 className="text-3xl font-bold text-gray-800 mb-6">
-                Create New Recipe
-              </h1>
+          <div className="max-w-3xl mx-auto">
+            <h1 className="text-3xl font-bold text-gray-800 mb-6">
+              {importStatus ? "Edit Imported Recipe" : "Create New Recipe"}
+            </h1>
 
-              {error && (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
-                  {error}
-                </div>
-              )}
+            {error && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+                {error}
+              </div>
+            )}
 
-              <form
-                onSubmit={handleSubmit}
-                className="bg-white shadow-md rounded-lg p-6"
-              >
-                <div className="mb-6">
+            <form
+              onSubmit={handleSubmit}
+              className="bg-white shadow-md rounded-lg p-6"
+            >
+              <div className="mb-6">
+                <label
+                  htmlFor="title"
+                  className="block text-gray-700 font-medium mb-2"
+                >
+                  Title*
+                </label>
+                <input
+                  type="text"
+                  id="title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Recipe title"
+                  required
+                />
+              </div>
+
+              <div className="mb-6">
+                <label
+                  htmlFor="description"
+                  className="block text-gray-700 font-medium mb-2"
+                >
+                  Description*
+                </label>
+                <textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Describe your recipe"
+                  required
+                ></textarea>
+              </div>
+
+              <div className="mb-6">
+                <label
+                  htmlFor="imageUrl"
+                  className="block text-gray-700 font-medium mb-2"
+                >
+                  Image URL
+                </label>
+                <input
+                  type="url"
+                  id="imageUrl"
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="https://example.com/image.jpg"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div>
                   <label
-                    htmlFor="title"
+                    htmlFor="prepTime"
                     className="block text-gray-700 font-medium mb-2"
                   >
-                    Title*
+                    Prep Time (minutes)
                   </label>
                   <input
-                    type="text"
-                    id="title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    type="number"
+                    id="prepTime"
+                    value={prepTime}
+                    onChange={(e) => setPrepTime(e.target.value)}
+                    min="0"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Recipe title"
-                    required
                   />
                 </div>
-
-                <div className="mb-6">
+                <div>
                   <label
-                    htmlFor="description"
+                    htmlFor="cookTime"
                     className="block text-gray-700 font-medium mb-2"
                   >
-                    Description*
-                  </label>
-                  <textarea
-                    id="description"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Describe your recipe"
-                    required
-                  ></textarea>
-                </div>
-
-                <div className="mb-6">
-                  <label
-                    htmlFor="image"
-                    className="block text-gray-700 font-medium mb-2"
-                  >
-                    Image URL
+                    Cook Time (minutes)
                   </label>
                   <input
-                    type="url"
-                    id="image"
-                    value={image}
-                    onChange={(e) => setImage(e.target.value)}
+                    type="number"
+                    id="cookTime"
+                    value={cookTime}
+                    onChange={(e) => setCookTime(e.target.value)}
+                    min="0"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="https://example.com/image.jpg"
                   />
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  <div>
-                    <label
-                      htmlFor="prepTime"
-                      className="block text-gray-700 font-medium mb-2"
-                    >
-                      Prep Time (minutes)
-                    </label>
-                    <input
-                      type="number"
-                      id="prepTime"
-                      value={prepTime}
-                      onChange={(e) => setPrepTime(e.target.value)}
-                      min="0"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="cookTime"
-                      className="block text-gray-700 font-medium mb-2"
-                    >
-                      Cook Time (minutes) (optional)
-                    </label>
-                    <input
-                      type="number"
-                      id="cookTime"
-                      value={cookTime}
-                      onChange={(e) => setCookTime(e.target.value)}
-                      min="0"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="servings"
-                      className="block text-gray-700 font-medium mb-2"
-                    >
-                      Servings (optional)
-                    </label>
-                    <input
-                      type="number"
-                      id="servings"
-                      value={servings}
-                      onChange={(e) => setServings(e.target.value)}
-                      min="0"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+                <div>
+                  <label
+                    htmlFor="servings"
+                    className="block text-gray-700 font-medium mb-2"
+                  >
+                    Servings
+                  </label>
+                  <input
+                    type="number"
+                    id="servings"
+                    value={servings}
+                    onChange={(e) => setServings(e.target.value)}
+                    min="1"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
+              </div>
 
-                <div className="mb-6">
-                  <label className="block text-gray-700 font-medium mb-2">
+              <div className="mb-6">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-gray-700 font-medium">
                     Ingredients*
                   </label>
-                  {ingredients.map((ingredient, index) => (
-                    <div key={index} className="flex mb-2">
-                      <input
-                        type="text"
-                        value={ingredient.name}
-                        onChange={(e) =>
-                          handleIngredientChange(index, "name", e.target.value)
-                        }
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Ingredient name"
-                        required
-                      />
-                      <input
-                        type="text"
-                        value={ingredient.amount}
-                        onChange={(e) =>
-                          handleIngredientChange(
-                            index,
-                            "amount",
-                            e.target.value
-                          )
-                        }
-                        className="w-1/3 px-3 py-2 border-t border-b border-r border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Amount"
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveIngredient(index)}
-                        className="bg-red-500 text-white px-3 py-2 rounded-r-md hover:bg-red-600"
-                        disabled={ingredients.length <= 1}
-                      >
-                        -
-                      </button>
-                    </div>
-                  ))}
                   <button
                     type="button"
                     onClick={handleAddIngredient}
-                    className="mt-2 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
+                    className="text-indigo-600 hover:text-indigo-800"
                   >
-                    Add Ingredient
+                    + Add Ingredient
                   </button>
                 </div>
-
-                <div className="mb-6">
-                  <label className="block text-gray-700 font-medium mb-2">
-                    Instructions*
-                  </label>
-                  {instructions.map((instruction, index) => (
-                    <div key={index} className="flex mb-2">
-                      <div className="bg-gray-200 text-gray-700 px-3 py-2 rounded-l-md">
-                        {index + 1}.
-                      </div>
-                      <textarea
-                        value={instruction.step}
-                        onChange={(e) =>
-                          handleInstructionChange(index, e.target.value)
-                        }
-                        rows={2}
-                        className="flex-1 px-3 py-2 border-t border-b border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Instruction step"
-                        required
-                      ></textarea>
+                {ingredients.map((ingredient, index) => (
+                  <div
+                    key={`ingredient-${index}`}
+                    className="flex gap-2 mb-2 items-center"
+                  >
+                    <input
+                      type="text"
+                      value={ingredient.amount}
+                      onChange={(e) =>
+                        handleIngredientChange(index, "amount", e.target.value)
+                      }
+                      className="w-1/3 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Amount"
+                    />
+                    <input
+                      type="text"
+                      value={ingredient.name}
+                      onChange={(e) =>
+                        handleIngredientChange(index, "name", e.target.value)
+                      }
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Ingredient name"
+                    />
+                    {ingredients.length > 1 && (
                       <button
                         type="button"
-                        onClick={() => handleRemoveInstruction(index)}
-                        className="bg-red-500 text-white px-3 py-2 rounded-r-md hover:bg-red-600"
-                        disabled={instructions.length <= 1}
+                        onClick={() => handleRemoveIngredient(index)}
+                        className="text-red-500 hover:text-red-700"
                       >
-                        -
+                        Remove
                       </button>
-                    </div>
-                  ))}
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="mb-6">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-gray-700 font-medium">
+                    Instructions*
+                  </label>
                   <button
                     type="button"
                     onClick={handleAddInstruction}
-                    className="mt-2 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
+                    className="text-indigo-600 hover:text-indigo-800"
                   >
-                    Add Step
+                    + Add Step
                   </button>
                 </div>
+                {instructions.map((instruction, index) => (
+                  <div
+                    key={`instruction-${index}`}
+                    className="flex gap-2 mb-2 items-start"
+                  >
+                    <span className="mt-2 text-gray-500 font-medium">
+                      {index + 1}.
+                    </span>
+                    <textarea
+                      value={instruction}
+                      onChange={(e) =>
+                        handleInstructionChange(index, e.target.value)
+                      }
+                      rows={2}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Instruction step"
+                    />
+                    {instructions.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveInstruction(index)}
+                        className="text-red-500 hover:text-red-700 mt-2"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
 
-                <div className="mt-8 flex justify-end">
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="px-6 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                  >
-                    {loading ? "Creating..." : "Create Recipe"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-6 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Creating..." : "Create Recipe"}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
     </ProtectedRoute>

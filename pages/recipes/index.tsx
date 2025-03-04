@@ -1,7 +1,8 @@
 import Head from "next/head";
+import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
-import RecipeCard from "../../src/components/RecipeCard";
 import { useAuth } from "../../src/context/AuthContext";
+import RecipeCard from "../components/RecipeCard";
 
 // Define a type for Recipe
 interface Recipe {
@@ -17,6 +18,7 @@ interface Recipe {
 }
 
 export default function RecipeList() {
+  const router = useRouter();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +65,7 @@ export default function RecipeList() {
       </Head>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center mb-12">
+        <div className="text-center">
           <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
             All Recipes
           </h1>

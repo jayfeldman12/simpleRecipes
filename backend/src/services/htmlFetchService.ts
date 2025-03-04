@@ -1,4 +1,5 @@
 import axios from "axios";
+import * as cheerio from "cheerio";
 
 /**
  * Fetches HTML content from a given URL
@@ -47,8 +48,19 @@ export const fetchHtmlFromUrl = async (url: string): Promise<string | null> => {
       `Successfully fetched HTML from URL: ${url}, content length: ${response.data.length} characters`
     );
 
-    // Return HTML content
-    return response.data;
+    // Process HTML to remove unnecessary content and optimize for OpenAI
+    const optimizedHtml = optimizeHtmlForRecipeExtraction(response.data);
+
+    console.log(
+      `Optimized HTML for recipe extraction, reduced from ${
+        response.data.length
+      } to ${optimizedHtml.length} characters (${Math.round(
+        (optimizedHtml.length / response.data.length) * 100
+      )}%)`
+    );
+
+    // Return optimized HTML content
+    return optimizedHtml;
   } catch (error) {
     if (axios.isAxiosError(error)) {
       console.error(
@@ -63,3 +75,80 @@ export const fetchHtmlFromUrl = async (url: string): Promise<string | null> => {
     return null;
   }
 };
+
+/**
+ * Optimizes HTML content for recipe extraction by removing unnecessary elements
+ * and focusing on meaningful content
+ *
+ * @param htmlContent Original HTML content
+ * @returns Optimized HTML content
+ */
+function optimizeHtmlForRecipeExtraction(htmlContent: string): string {
+  try {
+    // Load HTML content into cheerio
+    const $ = cheerio.load(htmlContent);
+
+    // Remove all script and style tags
+    $("script, style, noscript, iframe").remove();
+
+    // Remove all SVG elements
+    $("svg").remove();
+
+    // Remove all image tags but keep their alt text as it might be useful
+    $("img").each(function (this: any) {
+      const altText = $(this).attr("alt");
+      if (altText) {
+        $(this).replaceWith(`<span>[Image: ${altText}]</span>`);
+      } else {
+        $(this).remove();
+      }
+    });
+
+    // Remove social media widgets, comments, and other non-essential elements
+    $(
+      '[class*="social"], [class*="share"], [class*="comment"], [class*="widget"], [class*="sidebar"], [class*="banner"], [class*="ad-"], [id*="ad-"]'
+    ).remove();
+
+    // Look for the main content, prioritizing article tag or main content areas
+    let mainContent =
+      $("article").html() ||
+      $("main").html() ||
+      $(".recipe").html() ||
+      $('[class*="recipe-"]').html() ||
+      $('[class*="content"]').html() ||
+      $('[class*="post"]').html() ||
+      $('[itemprop="recipeInstructions"]').parent().html();
+
+    // If we found a main content section, use it, otherwise use the body
+    let resultHtml;
+    if (mainContent) {
+      // Create a new cheerio instance with just the main content
+      const $main = cheerio.load(`<div>${mainContent}</div>`);
+
+      // Further cleanup within the main content
+      $main("header, footer, nav, aside").remove();
+
+      resultHtml = $main.html();
+      console.log("Using extracted main content section for recipe extraction");
+    } else {
+      // If no main content found, use the body but cleanup navigation, headers, footers
+      $("header, footer, nav, aside").remove();
+      resultHtml = $("body").html();
+      console.log("No main content section found, using cleaned body content");
+    }
+
+    // Final cleanup
+    if (resultHtml) {
+      // Replace consecutive whitespace, newlines with a single space
+      resultHtml = resultHtml.replace(/\s+/g, " ");
+      return resultHtml;
+    }
+
+    // If all else fails, return the original HTML without scripts and styles
+    return $("body").html() || htmlContent;
+  } catch (error) {
+    console.error("Error optimizing HTML:", error);
+    // If there's an error in optimization, return the original content
+    return htmlContent;
+  }
+}

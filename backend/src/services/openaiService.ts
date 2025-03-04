@@ -19,74 +19,51 @@ export const extractRecipeFromHTML = async (
 ): Promise<IRecipeBase | null> => {
   try {
     console.log(
-      `Received HTML content length: ${htmlContent.length} characters`
+      `Received optimized HTML content length: ${htmlContent.length} characters`
     );
 
-    // Clean up the HTML - remove scripts, styles, and comments
-    let cleanedHtml = htmlContent
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
-      .replace(/<!--[\s\S]*?-->/g, "");
+    // The HTML content is already optimized by htmlFetchService
+    // Just check if we need to truncate it further for token limits
+    const contentLimit = 30000; // Higher limit since content is already cleaned
 
-    // Extract the full text content from the HTML
-    const fullText = cleanedHtml
-      .replace(/<[^>]*>/g, " ") // Replace HTML tags with spaces
-      .replace(/\s+/g, " ") // Replace multiple spaces with single space
-      .trim();
+    let processedHtml = htmlContent;
+    if (processedHtml.length > contentLimit) {
+      console.log(
+        `HTML content still exceeds OpenAI token limit (${processedHtml.length} chars). Truncating...`
+      );
+      // Keep beginning and end, trim middle
+      const halfLimit = contentLimit / 2;
+      processedHtml =
+        processedHtml.substring(0, halfLimit) +
+        "\n[CONTENT TRUNCATED FOR LENGTH]\n" +
+        processedHtml.substring(processedHtml.length - halfLimit);
 
-    // Save the full text of the recipe for later reference
-    const fullRecipe = fullText;
-
-    // Limit content to prevent token overflow, focusing on meaningful content
-    const contentLimit = 12000; // Reduced from 15000 to leave room for the system and user messages
-    if (cleanedHtml.length > contentLimit) {
-      // Try to find the main content - look for common content containers
-      const mainContentRegexes = [
-        /<main[^>]*>([\s\S]*?)<\/main>/i,
-        /<article[^>]*>([\s\S]*?)<\/article>/i,
-        /<div[^>]*?class="[^"]*?(content|recipe)[^"]*?"[^>]*>([\s\S]*?)<\/div>/i,
-        /<div[^>]*?id="[^"]*?(content|recipe)[^"]*?"[^>]*>([\s\S]*?)<\/div>/i,
-      ];
-
-      let mainContent = "";
-      for (const regex of mainContentRegexes) {
-        const match = cleanedHtml.match(regex);
-        if (match && match[1] && match[1].length > 100) {
-          // Must be substantial content
-          mainContent = match[1];
-          break;
-        }
-      }
-
-      // If we found main content, use it; otherwise trim from middle
-      if (mainContent && mainContent.length < contentLimit) {
-        cleanedHtml = mainContent;
-        console.log(
-          `Using extracted main content: ${mainContent.length} characters`
-        );
-      } else {
-        // Keep beginning and end, trim middle
-        const halfLimit = contentLimit / 2;
-        cleanedHtml =
-          cleanedHtml.substring(0, halfLimit) +
-          "\n[CONTENT TRUNCATED FOR LENGTH]\n" +
-          cleanedHtml.substring(cleanedHtml.length - halfLimit);
-        console.log(`Trimmed HTML to ${cleanedHtml.length} characters`);
-      }
+      console.log(`Truncated HTML is now ${processedHtml.length} characters`);
     }
 
-    // Prepare prompt for OpenAI with explicit instructions
+    // Prepare prompt for OpenAI with explicit instructions for both structured data and full text
     const prompt = `
-      I need you to carefully extract the complete recipe information from the HTML below.
+      I need you to carefully extract the complete recipe information from the HTML content below.
+      
+      You're looking for a recipe in this HTML. If you can identify a recipe:
       
       Return a valid JSON object with these fields:
       - title: string (required) - The recipe title
       - description: string (required) - A brief description of the recipe
       - ingredients: string[] (required) - Each element should be a separate ingredient with amount
       - instructions: string[] (required) - Each element should be a separate instruction step
-      - cookingTime: number (optional) - Total cooking time in minutes
-      - servings: number (optional) - Number of servings
+      - cookingTime: number (optional) - Total cooking time in minutes. If not found, do not include this field.
+      - servings: number (optional) - Number of servings. If not found, do not include this field.
       - imageUrl: string (optional) - URL of the recipe image try to find the most relevant image, or leave as ""
+      - fullRecipe: string (required) - The complete recipe text in a clean, readable format with proper spacing and formatting.
+      
+      For the fullRecipe field:
+      1. Include ONLY the actual recipe content - no ads, comments, navigation elements, or unrelated text
+      2. Include the initial parts of the article, like the story and extra information about the recipe.
+      3. Format with proper paragraphs and line breaks for readability
+      4. Remove any promotional content, sharing buttons, or comment sections
+      5. This should be the same text that appears in the original article, it should not be a summary or re-wording.
+      
       
       IMPORTANT:
       1. The response must ONLY contain the JSON object
@@ -95,86 +72,109 @@ export const extractRecipeFromHTML = async (
       4. Maintain the original measurements and ingredient names
       
       Here's the HTML content:
-      ${cleanedHtml}
+      ${processedHtml}
     `;
 
-    console.log("Sending request to OpenAI API...");
+    console.log("Sending request to OpenAI with prompt length:", prompt.length);
 
-    // Make API call to OpenAI
-    const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo-1106", // Using a model with improved JSON generation
+    // Call OpenAI API
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
           content:
-            "You are a specialized recipe extraction service. Your only job is to extract structured recipe data from HTML and return it as valid JSON. Do not include any explanations or text outside of the JSON object.",
+            "You are a specialized recipe extraction assistant. Your job is to extract complete recipe information from HTML content and return it in a structured JSON format",
         },
         { role: "user", content: prompt },
       ],
-      temperature: 0.2, // Lower temperature for more deterministic output
+      temperature: 0.2, // Slightly higher temperature for more flexibility
       response_format: { type: "json_object" }, // Request JSON specifically
-      max_tokens: 2000,
     });
 
-    // Parse the response
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      console.error("No content in OpenAI response");
-      throw new Error("No response from OpenAI");
-    }
+    const responseContent = completion.choices[0].message.content?.trim();
 
-    console.log(
-      "Received response from OpenAI:",
-      content.substring(0, 200) + "..."
-    );
-
-    // Parse JSON
-    const recipeData = JSON.parse(content);
-
-    // Check for error response
-    if (recipeData.error) {
-      console.log("OpenAI reported no recipe found:", recipeData.error);
+    if (!responseContent) {
+      console.error("Empty response from OpenAI");
       return null;
     }
 
-    // Validate recipe data
+    // Log a summary of the response
+    console.log(
+      "Received response from OpenAI (length: " + responseContent.length + "):",
+      responseContent.substring(0, 300) + "..."
+    );
+
+    // Parse JSON response
+    let parsedResponse: any;
+    try {
+      parsedResponse = JSON.parse(responseContent);
+    } catch (err) {
+      console.error("Failed to parse OpenAI response:", err);
+      console.error("Raw response:", responseContent);
+      return null;
+    }
+
+    // Check for error
+    if (parsedResponse.error) {
+      console.error("OpenAI extraction error:", parsedResponse.error);
+      console.log("Original HTML length:", htmlContent.length);
+      console.log("Processed HTML length:", processedHtml.length);
+      console.log("HTML sample:", processedHtml.substring(0, 500) + "...");
+      return null;
+    }
+
+    // Ensure required fields are present
     if (
-      !recipeData ||
-      !recipeData.title ||
-      !recipeData.ingredients ||
-      !recipeData.instructions
+      !parsedResponse.title ||
+      !parsedResponse.ingredients ||
+      !parsedResponse.instructions
     ) {
-      console.error("Invalid or incomplete recipe data:", recipeData);
+      console.error("Missing required fields in OpenAI response");
       return null;
     }
 
     // Ensure arrays are properly formatted
-    recipeData.ingredients = Array.isArray(recipeData.ingredients)
-      ? recipeData.ingredients
-      : [recipeData.ingredients];
+    parsedResponse.ingredients = Array.isArray(parsedResponse.ingredients)
+      ? parsedResponse.ingredients
+      : [parsedResponse.ingredients];
 
-    recipeData.instructions = Array.isArray(recipeData.instructions)
-      ? recipeData.instructions
-      : [recipeData.instructions];
+    parsedResponse.instructions = Array.isArray(parsedResponse.instructions)
+      ? parsedResponse.instructions
+      : [parsedResponse.instructions];
 
     // Parse numeric values
-    if (recipeData.cookingTime && typeof recipeData.cookingTime === "string") {
-      recipeData.cookingTime =
-        parseInt(recipeData.cookingTime, 10) || undefined;
+    if (
+      parsedResponse.cookingTime &&
+      typeof parsedResponse.cookingTime === "string"
+    ) {
+      parsedResponse.cookingTime =
+        parseInt(parsedResponse.cookingTime, 10) || undefined;
     }
 
-    if (recipeData.servings && typeof recipeData.servings === "string") {
-      recipeData.servings = parseInt(recipeData.servings, 10) || undefined;
+    if (
+      parsedResponse.servings &&
+      typeof parsedResponse.servings === "string"
+    ) {
+      parsedResponse.servings =
+        parseInt(parsedResponse.servings, 10) || undefined;
     }
 
-    // Add the full recipe text and source URL to the data
-    recipeData.fullRecipe = fullRecipe;
-    if (sourceUrl) {
-      recipeData.sourceUrl = sourceUrl;
-    }
+    // Construct recipe object
+    const recipe: Partial<IRecipeBase> = {
+      title: parsedResponse.title,
+      description: parsedResponse.description || "",
+      ingredients: parsedResponse.ingredients,
+      instructions: parsedResponse.instructions,
+      cookingTime: parsedResponse.cookingTime,
+      servings: parsedResponse.servings,
+      imageUrl: parsedResponse.imageUrl || "",
+      fullRecipe: parsedResponse.fullRecipe || "",
+      sourceUrl: sourceUrl || "",
+    };
 
     console.log("Successfully extracted recipe data");
-    return recipeData;
+    return recipe as IRecipeBase;
   } catch (error) {
     console.error("Error extracting recipe from HTML:", error);
     return null;
