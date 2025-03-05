@@ -28,7 +28,7 @@ export const extractRecipeFromHTML = async (
     );
 
     // Check if we need to truncate content for token limits
-    const contentLimit = 30000;
+    const contentLimit = 60000;
     let processedHtml = htmlContent;
 
     if (processedHtml.length > contentLimit) {
@@ -38,7 +38,7 @@ export const extractRecipeFromHTML = async (
 
       // Keep beginning, truncate end where comments usually are
       processedHtml =
-        processedHtml.substring(0, contentLimit - 500) +
+        processedHtml.substring(0, contentLimit) +
         "\n[CONTENT TRUNCATED FOR LENGTH]\n";
 
       console.log(`Truncated HTML is now ${processedHtml.length} characters`);
@@ -46,14 +46,14 @@ export const extractRecipeFromHTML = async (
 
     // Prepare prompt for OpenAI
     const prompt = `
-      I need you to carefully extract the complete recipe information from the HTML content below.
+      I need you to carefully extract the complete recipe information from the HTML content below. The HTML is very stripped down, and all p, div, span, h1, strong, etc tags have all been removed.
       
       You're looking for a recipe in this HTML. If you can identify a recipe:
       
       Return a valid JSON object with these fields:
       - title: string (required) - The recipe title
       - description: string (required) - A brief description of the recipe
-      - ingredients: string[] (required) - Each element should be a separate ingredient with amount
+      - ingredients: string[] (required) - Each element should be a separate ingredient with amount and unit. Do not add substitutes. If they give units in the metric and imperial system, just use the imperial system unit and drop the metric unit. If there is extra information, like the butter needs to be softened, that should be included in as few words as possible, no need to keep the exact original wording as long as the meaning is the same.  The format should be '[amount] [ingredient] (extra info, if needed)'.
       - instructions: string[] (required) - Each element should be a separate instruction step
       - cookingTime: number (optional) - Total cooking time in minutes. If not found, do not include this field.
       - servings: number (optional) - Number of servings. If not found, do not include this field.
@@ -61,7 +61,6 @@ export const extractRecipeFromHTML = async (
       - fullRecipe: string (required) - The complete recipe text in a clean, readable format with proper spacing and formatting.
       
       For the fullRecipe field:
-      1. Include ONLY the actual recipe content - no ads, comments, navigation elements, or unrelated text
       2. Format as valid HTML with proper paragraphs (<p>), headings (<h2>, <h3>), and section structure
       3. Include the initial parts of the article, like the story and extra information about the recipe in addition to the main recipe itself.
       4. Remove any promotional content, sharing buttons, or comment sections

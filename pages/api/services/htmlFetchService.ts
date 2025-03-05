@@ -110,59 +110,14 @@ function optimizeHtmlForRecipeExtraction(htmlContent: string): string {
         });
       }
 
-      // Clone the article to prevent modifying the original DOM
+      // Extract the article content
       const articleHtml = bestArticle.html() || "";
-      const $article = cheerio.load(articleHtml);
 
-      // Clean up specific elements within the article
-      $article(
-        "script, style, noscript, iframe, meta, link, nav, footer, header"
-      ).remove();
-      $article("svg").remove();
-      $article("button").remove();
-      $article('[role="dialog"]').remove();
-      $article(
-        '[class*="social"], [class*="share"], [class*="comment"]'
-      ).remove();
-
-      // Clean up images - preserve but simplify them
-      $article("img").each(function () {
-        // Keep the img tag but clean up unnecessary attributes
-        const src = $article(this).attr("src") || "";
-        const alt = $article(this).attr("alt") || "";
-        const dataSrc = $article(this).attr("data-src") || "";
-
-        // Use the best available image URL
-        let bestSrc = src;
-        if (!bestSrc && dataSrc) bestSrc = dataSrc;
-
-        // If we have a src, keep the image; otherwise, remove it
-        if (bestSrc) {
-          $article(this).attr("src", bestSrc);
-          if (alt) $article(this).attr("alt", alt);
-
-          // Clean other attributes
-          $article(this)
-            .removeAttr("class")
-            .removeAttr("id")
-            .removeAttr("width")
-            .removeAttr("height")
-            .removeAttr("srcset")
-            .removeAttr("sizes")
-            .removeAttr("loading")
-            .removeAttr("data-src")
-            .removeAttr("data-srcset");
-        } else {
-          $article(this).remove();
-        }
-      });
-
-      const cleanedArticleHtml = $article.html();
-      console.log("Found and extracted article tag content");
-      return cleanedArticleHtml || "";
+      // Aggressively clean the extracted content
+      return cleanHtmlAggressively(articleHtml);
     }
 
-    // If no article tag, fall back to previous approach of finding content
+    // If no article tag, fall back to trying to identify main content
     console.log("No article tag found, trying to identify main content");
 
     // Remove non-content elements
@@ -181,38 +136,6 @@ function optimizeHtmlForRecipeExtraction(htmlContent: string): string {
         '[class*="newsletter"], [id*="newsletter"], [class*="related"], [class*="recommended"], ' +
         '[class*="promo"], [class*="subscribe"], [id*="subscribe"]'
     ).remove();
-
-    // Clean up images
-    $("img").each(function () {
-      // Keep the img tag but clean up unnecessary attributes
-      const src = $(this).attr("src") || "";
-      const alt = $(this).attr("alt") || "";
-      const dataSrc = $(this).attr("data-src") || "";
-
-      // Use the best available image URL
-      let bestSrc = src;
-      if (!bestSrc && dataSrc) bestSrc = dataSrc;
-
-      // If we have a src, keep the image; otherwise, remove it
-      if (bestSrc) {
-        $(this).attr("src", bestSrc);
-        if (alt) $(this).attr("alt", alt);
-
-        // Clean other attributes to simplify the HTML
-        $(this)
-          .removeAttr("class")
-          .removeAttr("id")
-          .removeAttr("width")
-          .removeAttr("height")
-          .removeAttr("srcset")
-          .removeAttr("sizes")
-          .removeAttr("loading")
-          .removeAttr("data-src")
-          .removeAttr("data-srcset");
-      } else {
-        $(this).remove();
-      }
-    });
 
     // Try to find the main recipe content area
     // Check multiple potential containers in priority order
@@ -262,36 +185,132 @@ function optimizeHtmlForRecipeExtraction(htmlContent: string): string {
       mainContent = findContentByTextDensity($);
     }
 
-    // If we have found main content, use it; otherwise, use the cleaned body
+    // If we have found main content, use it and aggressively clean it
     if (mainContent) {
-      // Wrap in a container
-      const $main = cheerio.load(`<div>${mainContent}</div>`);
-
-      // Final cleanup of the extracted content
-      $main('aside, [class*="sidebar"]').remove();
-
-      // Get the cleaned result
-      let resultHtml = $main.html() || "";
-
-      // Normalize whitespace
-      resultHtml = resultHtml.replace(/\s+/g, " ").trim();
-
-      console.log(
-        `Extracted main content length: ${resultHtml.length} characters`
-      );
-      return resultHtml;
+      return cleanHtmlAggressively(mainContent);
     }
 
     // Fallback: if no specific content area found, use the cleaned body
     let bodyHtml = $("body").html() || htmlContent;
-    bodyHtml = bodyHtml.replace(/\s+/g, " ").trim();
 
-    console.log(
-      "No specific content container found, using cleaned body content"
-    );
-    return bodyHtml;
+    // Clean the body HTML aggressively
+    return cleanHtmlAggressively(bodyHtml);
   } catch (error) {
     console.error("Error optimizing HTML:", error);
+    return htmlContent;
+  }
+}
+
+/**
+ * Aggressively cleans HTML content to reduce size by:
+ * 1. Preserving only essential tags (a, ul, ol, li, img, br)
+ * 2. Removing all attributes except src/alt on images and href on links
+ * 3. Removing all other tags but keeping their text content
+ */
+function cleanHtmlAggressively(htmlContent: string): string {
+  try {
+    const $ = cheerio.load(htmlContent);
+
+    // Remove all script, style, and SVG elements first
+    $("script, style, svg, iframe, noscript, form, button").remove();
+
+    // Remove all comments
+    $("*")
+      .contents()
+      .each(function () {
+        const node = this;
+        if (node.type === "comment") {
+          $(this).remove();
+        }
+      });
+
+    // List of tags to preserve - extremely minimal
+    const preserveTags = ["a", "ul", "ol", "li", "img", "br"];
+
+    // Process all elements
+    $("*").each(function () {
+      const element = $(this);
+      const tagName =
+        this.type === "tag" && this.name ? this.name.toLowerCase() : "";
+
+      // If not a tag or not in the preserve list, replace with its contents
+      if (this.type !== "tag" || !preserveTags.includes(tagName)) {
+        // Special case for headings and paragraphs - add a line break
+        if (
+          ["p", "h1", "h2", "h3", "h4", "h5", "h6", "div"].includes(tagName)
+        ) {
+          // Wrap content in a basic text node and add a line break
+          const content = element.html() || "";
+          element.replaceWith(content + (content ? "<br>" : ""));
+        } else {
+          // Just replace with content for other tags
+          element.replaceWith(element.html() || "");
+        }
+      }
+    });
+
+    // Now clean up attributes on remaining elements
+    $("a, img, ul, ol, li, br").each(function () {
+      const element = $(this);
+      const tagName = this.name ? this.name.toLowerCase() : "";
+
+      if (tagName === "img") {
+        // For images, keep only src and alt
+        const src = element.attr("src") || "";
+        const dataSrc = element.attr("data-src") || "";
+        const alt = element.attr("alt") || "";
+
+        // Use best source
+        const bestSrc = src || dataSrc;
+
+        // Remove all attributes
+        // Get all attribute names
+        const attrsToRemove = Object.keys(this.attribs || {});
+        attrsToRemove.forEach((attr) => {
+          element.removeAttr(attr);
+        });
+
+        // Re-add only essential attributes
+        if (bestSrc) element.attr("src", bestSrc);
+        if (alt) element.attr("alt", alt);
+      } else if (tagName === "a") {
+        // For links, keep only href
+        const href = element.attr("href") || "";
+
+        // Remove all attributes
+        const attrsToRemove = Object.keys(this.attribs || {});
+        attrsToRemove.forEach((attr) => {
+          element.removeAttr(attr);
+        });
+
+        // Re-add href if it exists
+        if (href) element.attr("href", href);
+      } else {
+        // For all other preserved elements, remove all attributes
+        const attrsToRemove = Object.keys(this.attribs || {});
+        attrsToRemove.forEach((attr) => {
+          element.removeAttr(attr);
+        });
+      }
+    });
+
+    // Get HTML and normalize whitespace
+    let result = $.html();
+    result = result.replace(/\s+/g, " ").trim();
+
+    // Remove empty elements
+    result = result.replace(/<(a|ul|ol|li)[^>]*>\s*<\/\1>/gi, "");
+
+    // Remove DOCTYPE, html, head, body tags that cheerio adds
+    result = result.replace(
+      /<!DOCTYPE[^>]*>|<html>|<\/html>|<head>|<\/head>|<body>|<\/body>/gi,
+      ""
+    );
+
+    console.log(`Ultra-minimal HTML: reduced to ${result.length} characters`);
+    return result;
+  } catch (error) {
+    console.error("Error in aggressive HTML cleaning:", error);
     return htmlContent;
   }
 }
