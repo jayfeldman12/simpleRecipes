@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import Recipe from "../models/Recipe";
 import { AuthNextApiRequest, connectDB, withProtect } from "../utils/auth";
-import { processImageUrl } from "../utils/awsS3";
+import { processImageUrl, processImagesInHtml } from "../utils/awsS3";
 
 // Handler for GET requests - Get a recipe by ID
 async function getRecipeById(
@@ -106,6 +106,26 @@ async function updateRecipe(req: AuthNextApiRequest, res: NextApiResponse) {
       }
     }
 
+    // Process images in fullRecipe HTML content if it has changed
+    let processedFullRecipe = fullRecipe;
+    if (fullRecipe && fullRecipe !== recipe.fullRecipe) {
+      try {
+        processedFullRecipe = await processImagesInHtml(
+          fullRecipe,
+          recipe.sourceUrl
+        );
+        console.log(
+          "Successfully processed images in updated full recipe content"
+        );
+      } catch (fullRecipeError) {
+        console.error(
+          "Error processing images in full recipe update:",
+          fullRecipeError
+        );
+        // Continue with the original content if there's an error
+      }
+    }
+
     // Update recipe fields
     recipe.title = title || recipe.title;
     recipe.description = description || recipe.description;
@@ -116,7 +136,9 @@ async function updateRecipe(req: AuthNextApiRequest, res: NextApiResponse) {
     recipe.servings = servings !== undefined ? servings : recipe.servings;
     recipe.imageUrl = processedImageUrl;
     recipe.fullRecipe =
-      fullRecipe !== undefined ? fullRecipe : recipe.fullRecipe;
+      processedFullRecipe !== undefined
+        ? processedFullRecipe
+        : recipe.fullRecipe;
     recipe.sourceUrl = sourceUrl !== undefined ? sourceUrl : recipe.sourceUrl;
 
     // Save updated recipe

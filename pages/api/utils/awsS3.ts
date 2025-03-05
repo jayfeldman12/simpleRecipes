@@ -129,10 +129,21 @@ function getContentType(fileName: string): string {
  * Processes an image URL: downloads it and uploads to S3
  * Returns the new CloudFront URL
  */
-export async function processImageUrl(imageUrl: string): Promise<string> {
+export async function processImageUrl(
+  imageUrl: string,
+  retryCount = 0
+): Promise<string> {
   try {
     // Skip processing if it's already a CloudFront URL or doesn't exist
     if (!imageUrl || imageUrl.includes(cloudfrontDomain as string)) {
+      return imageUrl;
+    }
+
+    // Validate URL format
+    try {
+      new URL(imageUrl);
+    } catch (urlError) {
+      console.error("Invalid URL format:", imageUrl);
       return imageUrl;
     }
 
@@ -149,7 +160,166 @@ export async function processImageUrl(imageUrl: string): Promise<string> {
     return s3Url;
   } catch (error) {
     console.error("Error processing image:", error);
-    // Return the original URL if there's an error
+
+    // Retry logic (max 2 retries)
+    if (retryCount < 2) {
+      console.log(
+        `Retrying image processing for ${imageUrl} (attempt ${retryCount + 1})`
+      );
+      return processImageUrl(imageUrl, retryCount + 1);
+    }
+
+    // Return the original URL if there's an error after retries
     return imageUrl;
+  }
+}
+
+/**
+ * Processes HTML content, finding all <img> tags,
+ * downloading the images, uploading to S3, and replacing
+ * the src attributes with CloudFront URLs
+ */
+export async function processImagesInHtml(
+  htmlContent: string,
+  sourceUrl?: string
+): Promise<string> {
+  if (!htmlContent) {
+    return htmlContent;
+  }
+
+  // Safety check - if this doesn't look like HTML with images, return as is
+  if (!/<img/i.test(htmlContent)) {
+    return htmlContent;
+  }
+
+  try {
+    // Create a regex to match all img tags with various src patterns
+    const imgRegex =
+      /<img[^>]*\s(?:src|data-src|data-lazy-src)=["']([^"']+)["'][^>]*>/gi;
+    let match;
+    let processedHtml = htmlContent;
+    let imagesToProcess: { originalUrl: string; fullMatch: string }[] = [];
+
+    // Create URL object from source URL if available
+    let baseUrl: URL | null = null;
+    if (sourceUrl) {
+      try {
+        baseUrl = new URL(sourceUrl);
+      } catch (error) {
+        console.error("Invalid source URL:", error);
+      }
+    }
+
+    // Find all images to process
+    while ((match = imgRegex.exec(htmlContent)) !== null) {
+      const fullMatch = match[0];
+      let imgSrc = match[1];
+
+      // Skip if already a CloudFront URL, data URLs, or SVG data
+      if (
+        imgSrc.includes(cloudfrontDomain as string) ||
+        imgSrc.startsWith("data:") ||
+        imgSrc.startsWith("blob:") ||
+        imgSrc.includes("svg+xml")
+      ) {
+        continue;
+      }
+
+      // Handle relative URLs if we have a base URL
+      if (baseUrl && !imgSrc.match(/^(https?:)?\/\//)) {
+        try {
+          // For absolute paths (starting with /)
+          if (imgSrc.startsWith("/")) {
+            imgSrc = `${baseUrl.protocol}//${baseUrl.host}${imgSrc}`;
+          }
+          // For relative paths (not starting with / or http)
+          else if (!imgSrc.match(/^(https?:)?\/\//)) {
+            // Get the directory part of the pathname
+            const pathParts = baseUrl.pathname.split("/");
+            pathParts.pop(); // Remove the last part (file name)
+            const directory = pathParts.join("/");
+
+            // Ensure directory ends with a slash for path joining
+            const directoryWithSlash = directory.endsWith("/")
+              ? directory
+              : directory + "/";
+            imgSrc = `${baseUrl.protocol}//${baseUrl.host}${directoryWithSlash}${imgSrc}`;
+          }
+        } catch (urlError) {
+          console.error("Error processing relative URL:", urlError);
+          // Continue with the original URL if there's an error
+        }
+      }
+
+      // Validate URL structure
+      try {
+        new URL(imgSrc);
+
+        // Add to processing queue - only if we have a valid URL
+        imagesToProcess.push({
+          originalUrl: imgSrc,
+          fullMatch,
+        });
+      } catch (urlError) {
+        console.warn(`Skipping invalid image URL: ${imgSrc}`);
+        // Skip invalid URLs
+      }
+    }
+
+    console.log(
+      `Found ${imagesToProcess.length} images to process in HTML content`
+    );
+
+    // Process images in parallel with a limit to avoid overwhelming resources
+    const batchSize = 5;
+    for (let i = 0; i < imagesToProcess.length; i += batchSize) {
+      const batch = imagesToProcess.slice(i, i + batchSize);
+
+      // Process batch in parallel
+      const results = await Promise.allSettled(
+        batch.map(async (img) => {
+          try {
+            // Process the image URL
+            const s3Url = await processImageUrl(img.originalUrl);
+
+            // Replace in HTML - create a new img tag with the same attributes but updated src
+            const updatedImgTag = img.fullMatch.replace(
+              /\s(?:src|data-src|data-lazy-src)=["'][^"']+["']/i,
+              ` src="${s3Url}"`
+            );
+
+            return {
+              originalMatch: img.fullMatch,
+              newTag: updatedImgTag,
+              success: true,
+            };
+          } catch (error) {
+            console.error(`Error processing image ${img.originalUrl}:`, error);
+            // Return failure result
+            return {
+              originalMatch: img.fullMatch,
+              newTag: img.fullMatch, // Keep original on error
+              success: false,
+            };
+          }
+        })
+      );
+
+      // Apply all successful replacements
+      results.forEach((result) => {
+        if (result.status === "fulfilled" && result.value.success) {
+          processedHtml = processedHtml.replace(
+            result.value.originalMatch,
+            result.value.newTag
+          );
+        }
+      });
+    }
+
+    return processedHtml;
+  } catch (error) {
+    console.error("Error processing images in HTML:", error);
+    // Return original content if processing fails
+    return htmlContent;
   }
 }

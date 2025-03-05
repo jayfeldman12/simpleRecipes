@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import Recipe from "../models/Recipe";
 import { AuthNextApiRequest, connectDB, withProtect } from "../utils/auth";
-import { processImageUrl } from "../utils/awsS3";
+import { processImageUrl, processImagesInHtml } from "../utils/awsS3";
 
 // Handler for GET requests - Get all recipes
 async function getRecipes(
@@ -138,6 +138,21 @@ async function createRecipe(req: AuthNextApiRequest, res: NextApiResponse) {
       }
     }
 
+    // Process images in fullRecipe HTML content
+    let processedFullRecipe = fullRecipe;
+    if (fullRecipe) {
+      try {
+        processedFullRecipe = await processImagesInHtml(fullRecipe, sourceUrl);
+        console.log("Successfully processed images in full recipe content");
+      } catch (fullRecipeError) {
+        console.error(
+          "Error processing images in full recipe:",
+          fullRecipeError
+        );
+        // Continue with the original content if there's an error
+      }
+    }
+
     // Create a new recipe
     const recipe = new Recipe({
       title,
@@ -149,7 +164,7 @@ async function createRecipe(req: AuthNextApiRequest, res: NextApiResponse) {
       imageUrl: processedImageUrl,
       originalImageUrl,
       user: req.user._id,
-      fullRecipe,
+      fullRecipe: processedFullRecipe,
       sourceUrl,
     });
 

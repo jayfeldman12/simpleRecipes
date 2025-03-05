@@ -3,7 +3,7 @@ import Recipe from "../models/Recipe";
 import { fetchHtmlFromUrl } from "../services/htmlFetchService";
 import { extractRecipeFromHTML } from "../services/openaiService";
 import { AuthNextApiRequest, connectDB, withProtect } from "../utils/auth";
-import { processImageUrl } from "../utils/awsS3";
+import { processImageUrl, processImagesInHtml } from "../utils/awsS3";
 
 // @desc    Import recipe from URL
 // @route   POST /api/recipes/import
@@ -68,6 +68,26 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
       }
     }
 
+    // Process images in fullRecipe HTML content
+    let processedFullRecipe = recipeData.fullRecipe;
+    if (recipeData.fullRecipe) {
+      try {
+        processedFullRecipe = await processImagesInHtml(
+          recipeData.fullRecipe,
+          url
+        );
+        console.log(
+          "Successfully processed images in imported full recipe content"
+        );
+      } catch (fullRecipeError) {
+        console.error(
+          "Error processing images in imported full recipe:",
+          fullRecipeError
+        );
+        // Continue with the original content if there's an error
+      }
+    }
+
     // Create a new recipe
     const userId = req.user._id;
     const recipe = new Recipe({
@@ -76,6 +96,7 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
       sourceUrl: url, // Explicitly set the source URL
       imageUrl: processedImageUrl,
       originalImageUrl,
+      fullRecipe: processedFullRecipe,
     });
 
     // Save to database

@@ -57,16 +57,17 @@ export const extractRecipeFromHTML = async (
       - instructions: string[] (required) - Each element should be a separate instruction step
       - cookingTime: number (optional) - Total cooking time in minutes. If not found, do not include this field.
       - servings: number (optional) - Number of servings. If not found, do not include this field.
-      - imageUrl: string (optional) - URL of the recipe image try to find the most relevant image, or leave as ""
+      - imageUrl: string (optional) - URL of the recipe main image (hero image). Try to find the most relevant image, or leave as ""
       - fullRecipe: string (required) - The complete recipe text in a clean, readable format with proper spacing and formatting.
       
       For the fullRecipe field:
       1. Include ONLY the actual recipe content - no ads, comments, navigation elements, or unrelated text
-      2. Include the initial parts of the article, like the story and extra information about the recipe in addition to the main recipe itself.
-      3. Format with proper paragraphs and line breaks for readability
+      2. Format as valid HTML with proper paragraphs (<p>), headings (<h2>, <h3>), and section structure
+      3. Include the initial parts of the article, like the story and extra information about the recipe in addition to the main recipe itself.
       4. Remove any promotional content, sharing buttons, or comment sections
-      5. This should be the same text that appears in the original article, it should not be a summary or re-wording.
-      
+      5. Preserve ALL image tags (<img>) with their original src attributes. Include these at appropriate places in the content.
+      6. Maintain the original flow of content, with images appearing exactly where they do in the original recipe.
+      7. The result should be valid HTML that could be rendered directly in a browser.
       
       IMPORTANT:
       1. The response must ONLY contain the JSON object
