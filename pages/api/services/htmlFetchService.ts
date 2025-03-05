@@ -63,7 +63,6 @@ export const fetchHtmlFromUrl = async (url: string): Promise<string | null> => {
         (optimizedHtml.length / response.data.length) * 100
       )}%)`
     );
-    console.log("html", optimizedHtml);
 
     return optimizedHtml;
   } catch (error) {
