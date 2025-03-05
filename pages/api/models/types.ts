@@ -16,6 +16,7 @@ export interface IRecipeBase {
   cookingTime?: number;
   servings?: number;
   imageUrl: string;
+  originalImageUrl?: string;
   user: Types.ObjectId;
   createdAt: Date;
   fullRecipe?: string;

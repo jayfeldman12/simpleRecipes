@@ -3,6 +3,7 @@ import Recipe from "../models/Recipe";
 import { fetchHtmlFromUrl } from "../services/htmlFetchService";
 import { extractRecipeFromHTML } from "../services/openaiService";
 import { AuthNextApiRequest, connectDB, withProtect } from "../utils/auth";
+import { processImageUrl } from "../utils/awsS3";
 
 // @desc    Import recipe from URL
 // @route   POST /api/recipes/import
@@ -51,13 +52,30 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
 
     console.log("Successfully extracted recipe data:", recipeData.title);
 
+    // Process the image URL if provided
+    let processedImageUrl = "default-recipe.jpg";
+    let originalImageUrl = recipeData.imageUrl;
+
+    if (recipeData.imageUrl && recipeData.imageUrl !== "default-recipe.jpg") {
+      try {
+        // Download image and upload to S3
+        processedImageUrl = await processImageUrl(recipeData.imageUrl);
+        console.log(`Processed image URL during import: ${processedImageUrl}`);
+      } catch (imageError) {
+        console.error("Error processing image during import:", imageError);
+        // Continue with the original URL if there's an error
+        processedImageUrl = recipeData.imageUrl;
+      }
+    }
+
     // Create a new recipe
     const userId = req.user._id;
     const recipe = new Recipe({
       ...recipeData,
       user: userId,
       sourceUrl: url, // Explicitly set the source URL
-      imageUrl: recipeData.imageUrl || "default-recipe.jpg", // Set default image if none provided
+      imageUrl: processedImageUrl,
+      originalImageUrl,
     });
 
     // Save to database

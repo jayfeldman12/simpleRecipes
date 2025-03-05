@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import Recipe from "../models/Recipe";
 import { AuthNextApiRequest, connectDB, withProtect } from "../utils/auth";
+import { processImageUrl } from "../utils/awsS3";
 
 // Handler for GET requests - Get all recipes
 async function getRecipes(
@@ -121,6 +122,22 @@ async function createRecipe(req: AuthNextApiRequest, res: NextApiResponse) {
       );
     }
 
+    // Process the image URL if provided
+    let processedImageUrl = "default-recipe.jpg";
+    let originalImageUrl = imageUrl;
+
+    if (imageUrl && imageUrl !== "default-recipe.jpg") {
+      try {
+        // Download image and upload to S3
+        processedImageUrl = await processImageUrl(imageUrl);
+        console.log(`Processed image URL: ${processedImageUrl}`);
+      } catch (imageError) {
+        console.error("Error processing image:", imageError);
+        // Continue with the original URL if there's an error
+        processedImageUrl = imageUrl;
+      }
+    }
+
     // Create a new recipe
     const recipe = new Recipe({
       title,
@@ -129,7 +146,8 @@ async function createRecipe(req: AuthNextApiRequest, res: NextApiResponse) {
       instructions,
       cookingTime: cookTimeMinutes || cookingTime, // Use either format
       servings,
-      imageUrl: imageUrl || "default-recipe.jpg",
+      imageUrl: processedImageUrl,
+      originalImageUrl,
       user: req.user._id,
       fullRecipe,
       sourceUrl,

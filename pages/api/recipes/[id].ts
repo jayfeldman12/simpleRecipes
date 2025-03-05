@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import Recipe from "../models/Recipe";
 import { AuthNextApiRequest, connectDB, withProtect } from "../utils/auth";
+import { processImageUrl } from "../utils/awsS3";
 
 // Handler for GET requests - Get a recipe by ID
 async function getRecipeById(
@@ -81,6 +82,30 @@ async function updateRecipe(req: AuthNextApiRequest, res: NextApiResponse) {
       sourceUrl,
     } = req.body;
 
+    // Process the image URL if it has changed
+    let processedImageUrl = recipe.imageUrl;
+
+    if (
+      imageUrl &&
+      imageUrl !== recipe.imageUrl &&
+      imageUrl !== "default-recipe.jpg"
+    ) {
+      try {
+        // Download image and upload to S3
+        processedImageUrl = await processImageUrl(imageUrl);
+        console.log(`Processed updated image URL: ${processedImageUrl}`);
+
+        // Store the original URL if it's not already set
+        if (!recipe.originalImageUrl) {
+          recipe.originalImageUrl = imageUrl;
+        }
+      } catch (imageError) {
+        console.error("Error processing image during update:", imageError);
+        // Continue with the provided URL if there's an error
+        processedImageUrl = imageUrl;
+      }
+    }
+
     // Update recipe fields
     recipe.title = title || recipe.title;
     recipe.description = description || recipe.description;
@@ -89,7 +114,7 @@ async function updateRecipe(req: AuthNextApiRequest, res: NextApiResponse) {
     recipe.cookingTime =
       cookingTime !== undefined ? cookingTime : recipe.cookingTime;
     recipe.servings = servings !== undefined ? servings : recipe.servings;
-    recipe.imageUrl = imageUrl || recipe.imageUrl;
+    recipe.imageUrl = processedImageUrl;
     recipe.fullRecipe =
       fullRecipe !== undefined ? fullRecipe : recipe.fullRecipe;
     recipe.sourceUrl = sourceUrl !== undefined ? sourceUrl : recipe.sourceUrl;

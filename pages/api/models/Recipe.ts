@@ -41,6 +41,10 @@ const RecipeSchema = new Schema<IRecipeDocument>(
       type: String,
       default: "default-recipe.jpg",
     },
+    originalImageUrl: {
+      type: String,
+      required: false,
+    },
     user: {
       type: Schema.Types.ObjectId,
       ref: "User",
