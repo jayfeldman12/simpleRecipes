@@ -1,6 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { useEffect, useState } from "react";
+import { useAuth } from "../../src/context/AuthContext";
+import { recipeAPI } from "../../src/services/api";
+
+// Create a global event bus for favorites updates
+export const favoritesUpdated = new EventTarget();
 
 interface RecipeCardProps {
   recipe: {
@@ -13,6 +19,7 @@ interface RecipeCardProps {
       _id: string;
       username: string;
     };
+    isFavorite?: boolean;
   };
   isEditable?: boolean;
   onDelete?: (recipeId: string) => void;
@@ -25,6 +32,37 @@ const RecipeCard = ({
 }: RecipeCardProps) => {
   const router = useRouter();
   const currentPath = router.pathname;
+  const { user } = useAuth();
+  const [isFavorite, setIsFavorite] = useState(Boolean(recipe.isFavorite));
+
+  // Update the favorite status if the recipe props change
+  useEffect(() => {
+    setIsFavorite(Boolean(recipe.isFavorite));
+  }, [recipe.isFavorite]);
+
+  // Listen for global favorites updates
+  useEffect(() => {
+    const handleFavoritesUpdate = (e: Event) => {
+      // If this is a CustomEvent with detail containing our recipe ID
+      if (e instanceof CustomEvent && e.detail) {
+        if (e.detail.recipeId === recipe._id) {
+          setIsFavorite(e.detail.isFavorite);
+        }
+      }
+    };
+
+    favoritesUpdated.addEventListener(
+      "favoritesChanged",
+      handleFavoritesUpdate
+    );
+
+    return () => {
+      favoritesUpdated.removeEventListener(
+        "favoritesChanged",
+        handleFavoritesUpdate
+      );
+    };
+  }, [recipe._id]);
 
   // Determine if the imageUrl is an absolute URL or a relative path
   const isAbsoluteUrl =
@@ -43,6 +81,48 @@ const RecipeCard = ({
   const from =
     currentPath === "/recipes/my-recipes" ? "/recipes/my-recipes" : "/recipes";
 
+  const handleFavoriteToggle = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!user) return;
+
+    try {
+      // Optimistically update UI before API call completes
+      const newFavoriteStatus = !isFavorite;
+      setIsFavorite(newFavoriteStatus);
+
+      // Dispatch global event to update other instances of this recipe
+      const event = new CustomEvent("favoritesChanged", {
+        detail: {
+          recipeId: recipe._id,
+          isFavorite: newFavoriteStatus,
+        },
+      });
+      favoritesUpdated.dispatchEvent(event);
+
+      // Now make the actual API call
+      if (newFavoriteStatus) {
+        await recipeAPI.addToFavorites(recipe._id);
+      } else {
+        await recipeAPI.removeFromFavorites(recipe._id);
+      }
+    } catch (err) {
+      // If API call fails, revert the optimistic update
+      console.error("Failed to update favorite status:", err);
+      setIsFavorite(!isFavorite); // Restore previous state
+
+      // Dispatch event to update other components with the reverted state
+      const revertEvent = new CustomEvent("favoritesChanged", {
+        detail: {
+          recipeId: recipe._id,
+          isFavorite: !isFavorite, // The original state
+        },
+      });
+      favoritesUpdated.dispatchEvent(revertEvent);
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200">
       <Link
@@ -57,7 +137,7 @@ const RecipeCard = ({
             style={{ objectFit: "cover" }}
           />
           {recipe.cookingTime && (
-            <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-sm flex items-center">
+            <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-sm flex items-center">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className="h-4 w-4 mr-1"
@@ -74,6 +154,33 @@ const RecipeCard = ({
               </svg>
               {recipe.cookingTime} min
             </div>
+          )}
+
+          {user && (
+            <button
+              onClick={handleFavoriteToggle}
+              className="absolute top-2 right-2 p-2 rounded-full bg-white shadow-md hover:bg-gray-100 z-10"
+              aria-label={
+                isFavorite ? "Remove from favorites" : "Add to favorites"
+              }
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className={`h-5 w-5 ${
+                  isFavorite ? "text-red-500" : "text-gray-400"
+                }`}
+                fill={isFavorite ? "currentColor" : "none"}
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={isFavorite ? "0" : "2"}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                />
+              </svg>
+            </button>
           )}
         </div>
         <div className="p-4">

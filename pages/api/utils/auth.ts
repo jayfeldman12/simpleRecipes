@@ -119,7 +119,8 @@ export const protect = async (
 
 // Middleware to protect Next.js API routes
 export const withProtect = (
-  handler: (req: AuthNextApiRequest, res: NextApiResponse) => Promise<void>
+  handler: (req: AuthNextApiRequest, res: NextApiResponse) => Promise<void>,
+  optional: boolean = false
 ) => {
   return async (req: AuthNextApiRequest, res: NextApiResponse) => {
     try {
@@ -132,6 +133,12 @@ export const withProtect = (
         !req.headers.authorization.startsWith("Bearer")
       ) {
         console.log("No authorization token provided");
+
+        // If auth is optional, proceed without user
+        if (optional) {
+          return handler(req, res);
+        }
+
         return res.status(401).json({
           success: false,
           message: "Not authorized, no token",
@@ -146,6 +153,12 @@ export const withProtect = (
       const decoded = verifyToken(token);
       if (!decoded) {
         console.error("Token verification failed");
+
+        // If auth is optional, proceed without user
+        if (optional) {
+          return handler(req, res);
+        }
+
         return res.status(401).json({
           success: false,
           message: "Not authorized, token verification failed",
@@ -159,6 +172,12 @@ export const withProtect = (
       // Check if user exists
       if (!user) {
         console.error(`User not found for token with ID: ${decoded.id}`);
+
+        // If auth is optional, proceed without user
+        if (optional) {
+          return handler(req, res);
+        }
+
         return res.status(401).json({
           success: false,
           message: "User not found",

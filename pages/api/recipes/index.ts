@@ -3,7 +3,10 @@ import Recipe from "../models/Recipe";
 import { AuthNextApiRequest, connectDB, withProtect } from "../utils/auth";
 
 // Handler for GET requests - Get all recipes
-async function getRecipes(req: NextApiRequest, res: NextApiResponse) {
+async function getRecipes(
+  req: AuthNextApiRequest | NextApiRequest,
+  res: NextApiResponse
+) {
   await connectDB();
 
   try {
@@ -22,6 +25,56 @@ async function getRecipes(req: NextApiRequest, res: NextApiResponse) {
       .skip(skip)
       .limit(limit)
       .populate("user", "username");
+
+    // If user is authenticated, check which recipes are in their favorites
+    let recipesWithFavorites = recipes;
+
+    if ("user" in req && req.user) {
+      // Import User model dynamically to avoid circular dependencies
+      const User = (await import("../models/User")).default;
+
+      // Get user with favorites
+      const user = await User.findById(req.user._id);
+
+      if (user) {
+        // Convert user favorites to string IDs for comparison
+        const favoritesSet = new Set(user.favorites.map((id) => id.toString()));
+
+        // Create a new array with the isFavorite flag added
+        const recipeObjects = recipes.map((recipe) => {
+          // Convert Mongoose document to plain object
+          const recipeObj = recipe.toJSON();
+          const recipeId = recipe._id ? recipe._id.toString() : "";
+
+          // Check if this recipe is in the user's favorites
+          const isFavorite = favoritesSet.has(recipeId);
+
+          // Add isFavorite flag
+          return {
+            ...recipeObj,
+            isFavorite: isFavorite,
+          };
+        });
+
+        // Log the entire response for debugging
+        console.log(
+          "Response with favorites:",
+          recipeObjects.map((r) => ({
+            id: r._id,
+            title: r.title,
+            isFavorite: r.isFavorite,
+          }))
+        );
+
+        // Return the new array with the isFavorite flag
+        return res.status(200).json({
+          recipes: recipeObjects,
+          page,
+          pages: totalPages,
+          total,
+        });
+      }
+    }
 
     return res.status(200).json({
       recipes,
@@ -102,8 +155,11 @@ export default async function handler(
   try {
     // Route handlers based on HTTP method
     if (req.method === "GET") {
-      // GET is a public route, no authentication needed
-      return getRecipes(req, res);
+      // GET is a public route, but we'll pass auth info if available
+      return withProtect(getRecipes as any, true)(
+        req as AuthNextApiRequest,
+        res
+      );
     } else if (req.method === "POST") {
       // POST requires authentication
       return withProtect(createRecipe as any)(req as AuthNextApiRequest, res);

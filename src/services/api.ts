@@ -99,7 +99,15 @@ export const recipeAPI = {
       url += `&tag=${tag}`;
     }
 
-    const response = await fetch(url);
+    // Add auth token if available for getting favorite status
+    const token = getAuthToken();
+    const headers: HeadersInit = {};
+
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await fetch(url, { headers });
     return handleResponse(response);
   },
 

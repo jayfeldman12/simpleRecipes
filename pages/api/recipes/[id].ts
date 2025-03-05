@@ -3,7 +3,10 @@ import Recipe from "../models/Recipe";
 import { AuthNextApiRequest, connectDB, withProtect } from "../utils/auth";
 
 // Handler for GET requests - Get a recipe by ID
-async function getRecipeById(req: NextApiRequest, res: NextApiResponse) {
+async function getRecipeById(
+  req: NextApiRequest | AuthNextApiRequest,
+  res: NextApiResponse
+) {
   await connectDB();
 
   try {
@@ -14,7 +17,31 @@ async function getRecipeById(req: NextApiRequest, res: NextApiResponse) {
       return res.status(404).json({ message: "Recipe not found" });
     }
 
-    return res.status(200).json(recipe);
+    // Check if this recipe is in the user's favorites
+    let isFavorite = false;
+
+    if ((req as AuthNextApiRequest).user) {
+      // Import User model dynamically to avoid circular dependencies
+      const User = (await import("../models/User")).default;
+
+      // Access user data safely with optional chaining
+      const userId = (req as AuthNextApiRequest).user?._id;
+
+      if (userId) {
+        const user = await User.findById(userId);
+
+        if (user && user.favorites) {
+          isFavorite = user.favorites.some((favId) => favId.toString() === id);
+        }
+      }
+    }
+
+    // Return the recipe with the isFavorite flag
+    const recipeData = recipe.toJSON();
+    return res.status(200).json({
+      ...recipeData,
+      isFavorite,
+    });
   } catch (error) {
     console.error("Error fetching recipe:", error);
     return res.status(500).json({ message: "Server error" });

@@ -2,9 +2,9 @@ import Head from "next/head";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import ProtectedRoute from "../../src/components/ProtectedRoute";
-import RecipeCard from "../../src/components/RecipeCard";
 import { useAuth } from "../../src/context/AuthContext";
 import { recipeAPI } from "../../src/services/api";
+import RecipeCard from "../components/RecipeCard";
 
 interface Recipe {
   _id: string;
@@ -17,6 +17,7 @@ interface Recipe {
     username: string;
   };
   createdAt: string;
+  isFavorite?: boolean;
 }
 
 const MyRecipesPage = () => {
@@ -30,7 +31,22 @@ const MyRecipesPage = () => {
       try {
         setLoading(true);
         const data = await recipeAPI.getUserRecipes();
-        setRecipes(Array.isArray(data) ? data : []);
+
+        // Handle array or object response
+        let recipesData: Recipe[] = [];
+        if (Array.isArray(data)) {
+          recipesData = data;
+        } else if (data && Array.isArray(data.recipes)) {
+          recipesData = data.recipes;
+        }
+
+        // Ensure all recipes have isFavorite property
+        const processedRecipes = recipesData.map((recipe) => ({
+          ...recipe,
+          isFavorite: Boolean(recipe.isFavorite),
+        }));
+
+        setRecipes(processedRecipes);
       } catch (err) {
         console.error("Failed to fetch recipes:", err);
         setError("Failed to load your recipes. Please try again later.");

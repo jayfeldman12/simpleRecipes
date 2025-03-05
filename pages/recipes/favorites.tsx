@@ -1,16 +1,21 @@
 import Head from "next/head";
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import ProtectedRoute from "../../src/components/ProtectedRoute";
 import { recipeAPI } from "../../src/services/api";
+import RecipeCard, { favoritesUpdated } from "../components/RecipeCard";
 
 interface Recipe {
   _id: string;
   title: string;
-  image: string;
+  imageUrl: string;
   description: string;
   createdAt: string;
+  user: {
+    _id: string;
+    username: string;
+  };
+  isFavorite?: boolean;
 }
 
 const FavoritesPage = () => {
@@ -18,21 +23,77 @@ const FavoritesPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchFavoriteRecipes = async () => {
+    try {
+      setLoading(true);
+      const data = await recipeAPI.getFavoriteRecipes();
+
+      // Handle array or object response
+      let recipesData: Recipe[] = [];
+      if (Array.isArray(data)) {
+        recipesData = data;
+      } else if (data && Array.isArray(data.recipes)) {
+        recipesData = data.recipes;
+      }
+
+      // Ensure all recipes have isFavorite property (even if false)
+      const processedRecipes = recipesData.map((recipe) => ({
+        ...recipe,
+        isFavorite: true,
+      }));
+
+      setRecipes(processedRecipes);
+      setError(null); // Clear any existing errors
+    } catch (err) {
+      console.error("Failed to fetch favorite recipes:", err);
+      // Only set error state if the component is still mounted and visible
+      setError("Failed to load your favorites. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchFavoriteRecipes = async () => {
-      try {
-        setLoading(true);
-        const data = await recipeAPI.getFavoriteRecipes();
-        setRecipes(data.recipes || []);
-      } catch (err) {
-        console.error("Failed to fetch favorite recipes:", err);
-        setError("Failed to load your favorites. Please try again later.");
-      } finally {
-        setLoading(false);
+    fetchFavoriteRecipes();
+  }, []);
+
+  // Listen for favorites changes
+  useEffect(() => {
+    let mounted = true;
+
+    const handleFavoritesChange = (e: Event) => {
+      if (!mounted) return;
+
+      if (e instanceof CustomEvent && e.detail) {
+        const { recipeId, isFavorite } = e.detail;
+
+        // If a recipe was unfavorited, just remove it from the local state
+        if (!isFavorite) {
+          setRecipes((prev) =>
+            prev.filter((recipe) => recipe._id !== recipeId)
+          );
+          return;
+        }
+
+        // Only fetch if we need fresh data
+        fetchFavoriteRecipes().catch((err) => {
+          console.error("Error refreshing favorites:", err);
+        });
       }
     };
 
-    fetchFavoriteRecipes();
+    favoritesUpdated.addEventListener(
+      "favoritesChanged",
+      handleFavoritesChange
+    );
+
+    return () => {
+      mounted = false;
+      favoritesUpdated.removeEventListener(
+        "favoritesChanged",
+        handleFavoritesChange
+      );
+    };
   }, []);
 
   const handleRemoveFavorite = async (recipeId: string) => {
@@ -80,54 +141,7 @@ const FavoritesPage = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {recipes.map((recipe) => (
-              <div
-                key={recipe._id}
-                className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow"
-              >
-                {recipe.image && (
-                  <div className="relative h-48 w-full">
-                    <Image
-                      src={recipe.image}
-                      alt={recipe.title}
-                      fill
-                      style={{ objectFit: "cover" }}
-                    />
-                    <button
-                      onClick={() => handleRemoveFavorite(recipe._id)}
-                      className="absolute top-4 right-4 p-2 rounded-full bg-white shadow-md hover:bg-gray-100"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-6 w-6 text-red-500"
-                        fill="currentColor"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth="0"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                )}
-                <div className="p-4">
-                  <h2 className="text-xl font-semibold text-gray-800 mb-2">
-                    {recipe.title}
-                  </h2>
-                  <p className="text-gray-600 line-clamp-2 mb-4">
-                    {recipe.description}
-                  </p>
-                  <Link
-                    href={`/recipes/${recipe._id}`}
-                    className="text-blue-500 hover:text-blue-700 font-medium"
-                  >
-                    View Recipe
-                  </Link>
-                </div>
-              </div>
+              <RecipeCard key={recipe._id} recipe={recipe} />
             ))}
           </div>
         )}

@@ -33,9 +33,20 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
     // Fetch the full recipe details for each favorite
     const favoriteRecipes = await Recipe.find({
       _id: { $in: user.favorites },
-    }).sort({ createdAt: -1 });
+    })
+      .sort({ createdAt: -1 })
+      .populate("user", "username");
 
-    return res.status(200).json(favoriteRecipes);
+    // Add isFavorite flag to each recipe
+    const recipesWithFavoriteFlag = favoriteRecipes.map((recipe) => {
+      const recipeObj = recipe.toJSON();
+      return {
+        ...recipeObj,
+        isFavorite: true,
+      };
+    });
+
+    return res.status(200).json(recipesWithFavoriteFlag);
   } catch (error) {
     console.error("Error fetching favorite recipes:", error);
     return res.status(500).json({ message: "Server error" });

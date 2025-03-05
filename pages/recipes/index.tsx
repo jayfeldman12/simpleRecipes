@@ -2,7 +2,8 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { useAuth } from "../../src/context/AuthContext";
-import RecipeCard from "../components/RecipeCard";
+import { recipeAPI } from "../../src/services/api";
+import RecipeCard, { favoritesUpdated } from "../components/RecipeCard";
 
 // Define a type for Recipe
 interface Recipe {
@@ -15,6 +16,7 @@ interface Recipe {
     _id: string;
     username: string;
   };
+  isFavorite?: boolean;
 }
 
 export default function RecipeList() {
@@ -24,37 +26,69 @@ export default function RecipeList() {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
+  const fetchRecipes = async () => {
+    try {
+      // Use the API service which handles auth headers automatically
+      const data = await recipeAPI.getRecipes();
+
+      // Ensure we have an array of recipes and check for favorite status
+      let recipesArray = [];
+      if (Array.isArray(data)) {
+        recipesArray = data;
+      } else if (data && Array.isArray(data.recipes)) {
+        recipesArray = data.recipes;
+      } else {
+        console.error("Unexpected data format:", data);
+        setRecipes([]);
+        setError("Received invalid data format from server");
+        return;
+      }
+
+      // Explicitly convert isFavorite to boolean
+      const processed = recipesArray.map((recipe: Recipe) => ({
+        ...recipe,
+        isFavorite: Boolean(recipe.isFavorite),
+      }));
+
+      setRecipes(processed);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchRecipes = async () => {
-      try {
-        const response = await fetch("/api/recipes");
+    fetchRecipes();
+  }, []);
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch recipes");
-        }
+  // Listen for favorite changes and update recipes accordingly
+  useEffect(() => {
+    const handleFavoritesChange = (e: Event) => {
+      if (e instanceof CustomEvent && e.detail) {
+        const { recipeId, isFavorite } = e.detail;
 
-        const data = await response.json();
-
-        // Ensure we have an array of recipes
-        if (Array.isArray(data)) {
-          setRecipes(data);
-        } else if (data && Array.isArray(data.recipes)) {
-          // Handle case where API returns { recipes: [...] }
-          setRecipes(data.recipes);
-        } else {
-          console.error("Unexpected data format:", data);
-          setRecipes([]);
-          setError("Received invalid data format from server");
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "An error occurred");
-        console.error(err);
-      } finally {
-        setLoading(false);
+        // Update the isFavorite status for this recipe in our state
+        setRecipes((prevRecipes) =>
+          prevRecipes.map((recipe) =>
+            recipe._id === recipeId ? { ...recipe, isFavorite } : recipe
+          )
+        );
       }
     };
 
-    fetchRecipes();
+    favoritesUpdated.addEventListener(
+      "favoritesChanged",
+      handleFavoritesChange
+    );
+
+    return () => {
+      favoritesUpdated.removeEventListener(
+        "favoritesChanged",
+        handleFavoritesChange
+      );
+    };
   }, []);
 
   return (
