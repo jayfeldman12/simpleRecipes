@@ -1,3 +1,10 @@
+/**
+ * HTML Fetch Service
+ *
+ * Service for fetching HTML content from URLs, with various utilities for handling
+ * different types of websites and error conditions.
+ */
+
 import axios from "axios";
 import * as cheerio from "cheerio";
 
@@ -89,7 +96,7 @@ function optimizeHtmlForRecipeExtraction(htmlContent: string): string {
     $("svg").remove();
 
     // Replace images with their alt text
-    $("img").each(function (this: any) {
+    $("img").each(function () {
       const altText = $(this).attr("alt");
       if (altText) {
         $(this).replaceWith(`<span>[Image: ${altText}]</span>`);
@@ -139,3 +146,45 @@ function optimizeHtmlForRecipeExtraction(htmlContent: string): string {
     return htmlContent;
   }
 }
+
+/**
+ * Extract the main content from an HTML document
+ * This is a supplementary function that can be used if needed
+ */
+export const extractMainContent = (html: string): string => {
+  try {
+    const $ = cheerio.load(html);
+
+    // Try to find the main content area - common selectors for recipe sites
+    const contentSelectors = [
+      "article",
+      ".recipe-content",
+      ".recipe",
+      ".recipe-container",
+      ".post-content",
+      ".entry-content",
+      "main",
+      "#content",
+      ".content",
+    ];
+
+    for (const selector of contentSelectors) {
+      const element = $(selector);
+      if (element.length && element.text().trim().length > 200) {
+        return element.html() || "";
+      }
+    }
+
+    // Fallback to body if no content container found
+    return $("body").html() || html;
+  } catch (error) {
+    console.warn("Error extracting main content:", error);
+    return html;
+  }
+};
+
+// Export the module
+export default {
+  fetchHtmlFromUrl,
+  extractMainContent,
+};

@@ -1,5 +1,9 @@
 import mongoose, { Schema } from "mongoose";
-import { IRecipeDocument, IRecipeModel } from "../types";
+import dbConnect from "../utils/dbConnect";
+import { IRecipeDocument, IRecipeModel } from "./types";
+
+// Connect to the database before defining the model
+dbConnect();
 
 // Create a recipe schema
 const RecipeSchema = new Schema<IRecipeDocument>(
@@ -46,12 +50,10 @@ const RecipeSchema = new Schema<IRecipeDocument>(
       type: Date,
       default: Date.now,
     },
-    // Add fullRecipe field to store the original recipe text
     fullRecipe: {
       type: String,
       required: false,
     },
-    // Add sourceUrl field to store where the recipe came from
     sourceUrl: {
       type: String,
       required: false,
@@ -82,9 +84,8 @@ RecipeSchema.virtual("formattedCookingTime").get(function (
   }
 });
 
-// Create and export Recipe model
-const Recipe = mongoose.model<IRecipeDocument, IRecipeModel>(
-  "Recipe",
-  RecipeSchema
-);
+// Create and export Recipe model - using mongoose.models to check if model already exists
+const Recipe =
+  (mongoose.models.Recipe as IRecipeModel) ||
+  mongoose.model<IRecipeDocument, IRecipeModel>("Recipe", RecipeSchema);
 export default Recipe;

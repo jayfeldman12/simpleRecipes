@@ -19,13 +19,16 @@
     "typescript": "5.7.3"
   },
   "dependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "aws4": "^1.13.2",
     "axios": "^1.6.2",
+    "bcryptjs": "^3.0.2",
     "cheerio": "^1.0.0-rc.12",
     "eslint": "8.56.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.12.0",
     "next": "^15.1.7",
+    "openai": "^4.86.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   }

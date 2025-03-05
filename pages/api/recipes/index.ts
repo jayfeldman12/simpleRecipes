@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import Recipe from "../../../backend/src/models/Recipe";
+import Recipe from "../models/Recipe";
 import { AuthNextApiRequest, connectDB, withProtect } from "../utils/auth";
 
 // Handler for GET requests - Get all recipes
@@ -45,22 +45,36 @@ async function createRecipe(req: AuthNextApiRequest, res: NextApiResponse) {
     const {
       title,
       description,
-      ingredients,
+      ingredients: rawIngredients,
       instructions,
       cookingTime,
+      cookTimeMinutes,
+      prepTimeMinutes,
       servings,
       imageUrl,
       fullRecipe,
       sourceUrl,
     } = req.body;
 
+    // Process ingredients if they're in the frontend format
+    let processedIngredients = rawIngredients;
+    if (
+      Array.isArray(rawIngredients) &&
+      rawIngredients.length > 0 &&
+      typeof rawIngredients[0] === "object"
+    ) {
+      processedIngredients = rawIngredients.map(
+        (ing) => `${ing.amount ? ing.amount + " " : ""}${ing.name}`
+      );
+    }
+
     // Create a new recipe
     const recipe = new Recipe({
       title,
       description,
-      ingredients,
+      ingredients: processedIngredients,
       instructions,
-      cookingTime,
+      cookingTime: cookTimeMinutes || cookingTime, // Use either format
       servings,
       imageUrl: imageUrl || "default-recipe.jpg",
       user: req.user._id,

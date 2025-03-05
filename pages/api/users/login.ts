@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import User from "../../../backend/src/models/User";
-import { connectDB, generateToken } from "../utils/auth";
+import User from "../models/User";
+import { IUserDocument } from "../models/types";
+import { generateToken } from "../utils/auth";
 
 // @desc    Authenticate a user
 // @route   POST /api/users/login
@@ -15,9 +16,7 @@ export default async function handler(
   }
 
   try {
-    // Connect to the database first
-    await connectDB();
-
+    // No need to explicitly connect to the database since our User model handles it
     const { username, password } = req.body;
 
     // Validate input
@@ -30,7 +29,9 @@ export default async function handler(
     console.log(`Attempting to find user by username: ${username}`);
 
     // Check for username with timeout handling
-    const user = await User.findOne({ username }).select("+password");
+    const user = (await User.findOne({ username }).select(
+      "+password"
+    )) as IUserDocument;
 
     if (!user) {
       console.log(`User not found: ${username}`);

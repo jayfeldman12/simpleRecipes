@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import Recipe from "../../../backend/src/models/Recipe";
+import Recipe from "../models/Recipe";
 import { AuthNextApiRequest, connectDB, withProtect } from "../utils/auth";
 
 // Handler for GET requests - Get a recipe by ID

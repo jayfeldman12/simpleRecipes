@@ -1,8 +1,8 @@
 import jwt from "jsonwebtoken";
-import mongoose from "mongoose";
 import { NextApiRequest, NextApiResponse } from "next";
-import User from "../../../backend/src/models/User";
-import { IUserDocument } from "../../../backend/src/types";
+import User from "../models/User";
+import { IUserDocument } from "../models/types";
+import dbConnect from "./dbConnect";
 
 // Define extended type for request that includes user
 export interface AuthNextApiRequest extends NextApiRequest {
@@ -25,53 +25,9 @@ const checkJwtSecret = () => {
 // Run the check when this module is imported
 checkJwtSecret();
 
-// Connect to MongoDB
+// Connect to MongoDB - using our new dbConnect function
 export const connectDB = async () => {
-  // Only connect if not already connected
-  if (mongoose.connection.readyState >= 1) {
-    console.log("Reusing existing MongoDB connection");
-    return mongoose.connection;
-  }
-
-  try {
-    console.log("Initializing new MongoDB connection...");
-
-    // Create a more robust connection with proper options
-    const conn = await mongoose.connect(process.env.MONGODB_URI as string, {
-      bufferCommands: true,
-      connectTimeoutMS: 10000, // Connection timeout
-      socketTimeoutMS: 45000, // Socket timeout
-      serverSelectionTimeoutMS: 30000, // Server selection timeout
-      maxPoolSize: 10, // Maximum number of connections in the pool
-    });
-
-    console.log(
-      `MongoDB connected successfully: ${mongoose.connection.readyState}`
-    );
-
-    // Set up connection event handlers
-    mongoose.connection.on("connected", () => {
-      console.log("MongoDB connection established");
-    });
-
-    mongoose.connection.on("disconnected", () => {
-      console.log("MongoDB connection disconnected");
-    });
-
-    mongoose.connection.on("error", (err) => {
-      console.error("MongoDB connection error:", err);
-    });
-
-    return conn.connection;
-  } catch (error) {
-    console.error("MongoDB connection error:", error);
-    // Don't exit the process in production as it will crash the server
-    throw new Error(
-      `Failed to connect to MongoDB: ${
-        error instanceof Error ? error.message : String(error)
-      }`
-    );
-  }
+  return await dbConnect();
 };
 
 // Generate a JWT token

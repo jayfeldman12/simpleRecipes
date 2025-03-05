@@ -1,6 +1,10 @@
 import bcrypt from "bcryptjs";
 import mongoose, { Schema } from "mongoose";
-import { IUserDocument, IUserModel } from "../types";
+import dbConnect from "../utils/dbConnect";
+import { IUserDocument, IUserModel } from "./types";
+
+// Connect to the database before defining the model
+dbConnect();
 
 // Create a user schema
 const UserSchema = new Schema<IUserDocument>(
@@ -51,6 +55,8 @@ UserSchema.methods.matchPassword = async function (
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-// Create and export User model
-const User = mongoose.model<IUserDocument, IUserModel>("User", UserSchema);
+// Create and export User model - using mongoose.models to check if model already exists
+const User =
+  (mongoose.models.User as IUserModel) ||
+  mongoose.model<IUserDocument, IUserModel>("User", UserSchema);
 export default User;

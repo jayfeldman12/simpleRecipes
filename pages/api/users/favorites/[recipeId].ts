@@ -1,6 +1,5 @@
-import mongoose from "mongoose";
+import mongoose, { Types } from "mongoose";
 import { NextApiResponse } from "next";
-import User from "../../../../backend/src/models/User";
 import { AuthNextApiRequest, connectDB, withProtect } from "../../utils/auth";
 
 // @desc    Add or remove recipe from favorites
@@ -20,6 +19,9 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
       return res.status(401).json({ message: "Not authorized" });
     }
 
+    // Import User model dynamically to avoid circular dependencies
+    const User = (await import("../../models/User")).default;
+
     const { recipeId } = req.query;
     const user = await User.findById(req.user._id);
 
@@ -30,7 +32,9 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
     // POST - Add to favorites
     if (req.method === "POST") {
       // Check if recipe is already in favorites
-      if (user.favorites.some((id) => id.toString() === recipeId)) {
+      if (
+        user.favorites.some((id: Types.ObjectId) => id.toString() === recipeId)
+      ) {
         return res.status(400).json({ message: "Recipe already in favorites" });
       }
 
@@ -46,12 +50,14 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
     // DELETE - Remove from favorites
     if (req.method === "DELETE") {
       // Check if recipe is in favorites
-      if (!user.favorites.some((id) => id.toString() === recipeId)) {
+      if (
+        !user.favorites.some((id: Types.ObjectId) => id.toString() === recipeId)
+      ) {
         return res.status(400).json({ message: "Recipe not in favorites" });
       }
 
       user.favorites = user.favorites.filter(
-        (id) => id.toString() !== recipeId
+        (id: Types.ObjectId) => id.toString() !== recipeId
       );
       await user.save();
 

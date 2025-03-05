@@ -1,17 +1,22 @@
-import dotenv from "dotenv";
+/**
+ * OpenAI Service
+ *
+ * Service for extracting recipe data from HTML content using OpenAI's API
+ */
+
 import OpenAI from "openai";
-import { IRecipeBase } from "../types";
+import { IRecipeBase } from "../models/types";
 
-// Load environment variables
-dotenv.config();
-
-// Initialize OpenAI
+// Initialize OpenAI client
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
 /**
- * Extracts recipe data from HTML content using OpenAI
+ * Extract recipe data from HTML content using OpenAI
+ * @param htmlContent The HTML content containing the recipe
+ * @param sourceUrl Optional source URL of the recipe
+ * @returns A structured recipe object or null if extraction fails
  */
 export const extractRecipeFromHTML = async (
   htmlContent: string,
@@ -57,7 +62,7 @@ export const extractRecipeFromHTML = async (
       
       For the fullRecipe field:
       1. Include ONLY the actual recipe content - no ads, comments, navigation elements, or unrelated text
-      2. Include the initial parts of the article, like the story and extra information about the recipe.
+      2. Include the initial parts of the article, like the story and extra information about the recipe in addition to the main recipe itself.
       3. Format with proper paragraphs and line breaks for readability
       4. Remove any promotional content, sharing buttons, or comment sections
       5. This should be the same text that appears in the original article, it should not be a summary or re-wording.
@@ -77,7 +82,7 @@ export const extractRecipeFromHTML = async (
 
     // Call OpenAI API
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4-turbo-preview",
       messages: [
         {
           role: "system",
@@ -165,9 +170,11 @@ export const extractRecipeFromHTML = async (
       instructions: parsedResponse.instructions,
       cookingTime: parsedResponse.cookingTime,
       servings: parsedResponse.servings,
-      imageUrl: parsedResponse.imageUrl || "",
-      fullRecipe: parsedResponse.fullRecipe || "",
+      imageUrl: parsedResponse.imageUrl || "default-recipe.jpg",
+      fullRecipe: parsedResponse.fullRecipe || htmlContent,
       sourceUrl: sourceUrl || "",
+      user: undefined, // Will be set by the controller
+      createdAt: new Date(),
     };
 
     return recipe as IRecipeBase;
@@ -175,4 +182,9 @@ export const extractRecipeFromHTML = async (
     console.error("Error extracting recipe with OpenAI:", error);
     return null;
   }
+};
+
+// Export the module
+export default {
+  extractRecipeFromHTML,
 };

@@ -1,4 +1,3 @@
-import { Request } from "express";
 import { Document, Model, Types } from "mongoose";
 
 // Base interfaces (without Document extension)
@@ -25,6 +24,7 @@ export interface IRecipeBase {
 
 // Document interfaces (for instance methods)
 export interface IUserDocument extends IUserBase, Document {
+  _id: Types.ObjectId;
   matchPassword(enteredPassword: string): Promise<boolean>;
 }
 
@@ -39,11 +39,6 @@ export interface IUserModel extends Model<IUserDocument> {
 
 export interface IRecipeModel extends Model<IRecipeDocument> {
   // Static methods would go here
-}
-
-// Extended Express Request with user property
-export interface IAuthRequest extends Request {
-  user?: IUserDocument | null;
 }
 
 // Token payload

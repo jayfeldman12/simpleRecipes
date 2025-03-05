@@ -1,7 +1,7 @@
 import { NextApiResponse } from "next";
-import Recipe from "../../../backend/src/models/Recipe";
-import { fetchHtmlFromUrl } from "../../../backend/src/services/htmlFetchService";
-import { extractRecipeFromHTML } from "../../../backend/src/services/openaiService";
+import Recipe from "../models/Recipe";
+import { fetchHtmlFromUrl } from "../services/htmlFetchService";
+import { extractRecipeFromHTML } from "../services/openaiService";
 import { AuthNextApiRequest, connectDB, withProtect } from "../utils/auth";
 
 // @desc    Import recipe from URL
@@ -41,7 +41,7 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
       `Successfully fetched HTML from ${url}, length: ${htmlContent.length} characters`
     );
 
-    // Extract recipe data using OpenAI, passing the source URL
+    // Extract recipe data using OpenAI, passing the sourceUrl
     const recipeData = await extractRecipeFromHTML(htmlContent, url);
     if (!recipeData) {
       return res
@@ -56,7 +56,7 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
     const recipe = new Recipe({
       ...recipeData,
       user: userId,
-      sourceUrl: url, // Also set it explicitly here to ensure it's included
+      sourceUrl: url, // Explicitly set the source URL
       imageUrl: recipeData.imageUrl || "default-recipe.jpg", // Set default image if none provided
     });
 
@@ -67,7 +67,7 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
     // Return the recipe data and the ID for redirection
     return res.status(201).json({
       message: "Recipe imported successfully",
-      recipe: recipeData,
+      recipe: savedRecipe,
       recipeId: savedRecipe._id,
     });
   } catch (error) {

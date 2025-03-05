@@ -1,5 +1,5 @@
 import { NextApiResponse } from "next";
-import User from "../../../backend/src/models/User";
+import User from "../models/User";
 import { AuthNextApiRequest, connectDB, withProtect } from "../utils/auth";
 
 // @desc    Get or update user profile

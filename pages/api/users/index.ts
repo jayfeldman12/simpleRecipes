@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import User from "../../../backend/src/models/User";
+import User from "../models/User";
 import { connectDB, generateToken } from "../utils/auth";
 
 // @desc    Register new user

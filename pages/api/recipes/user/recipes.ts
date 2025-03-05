@@ -1,8 +1,7 @@
 import { NextApiResponse } from "next";
-import Recipe from "../../../../backend/src/models/Recipe";
 import { AuthNextApiRequest, connectDB, withProtect } from "../../utils/auth";
 
-// @desc    Get user recipes
+// @desc    Get user's recipes
 // @route   GET /api/recipes/user/recipes
 // @access  Private
 async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
@@ -19,6 +18,10 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
       return res.status(401).json({ message: "Not authorized" });
     }
 
+    // Import Recipe model dynamically
+    const Recipe = (await import("../../models/Recipe")).default;
+
+    // Get user's recipes
     const recipes = await Recipe.find({ user: req.user._id }).sort({
       createdAt: -1,
     });
