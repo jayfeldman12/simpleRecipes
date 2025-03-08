@@ -457,20 +457,20 @@ export default function RecipeDetail() {
 
         {/* Footer Actions */}
         <div className="bg-white border-t border-gray-200 py-2 px-3 z-10">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="flex justify-center">
             {recipe.sourceUrl && (
               <a
                 href={recipe.sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="bg-blue-100 text-blue-600 py-1 px-3 rounded-md text-center text-xs"
+                className="bg-blue-100 text-blue-600 py-1 px-4 rounded-md text-center text-xs w-auto mx-auto"
               >
                 View Original
               </a>
             )}
           </div>
           {user && user._id === recipe.user._id && (
-            <div className="grid grid-cols-2 gap-2 mt-1">
+            <div className="grid grid-cols-2 gap-2 mt-2">
               <Link
                 href={`/recipes/edit/${recipe._id}`}
                 className="bg-gray-100 text-gray-600 py-1 px-3 rounded-md text-center text-xs"

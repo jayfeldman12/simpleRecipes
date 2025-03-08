@@ -267,7 +267,7 @@ const CreateRecipePage = () => {
                 e.preventDefault();
                 handleImport();
               }}
-              className="flex items-center gap-3"
+              className="flex flex-col sm:flex-row items-center gap-3"
             >
               <input
                 type="url"
@@ -277,12 +277,12 @@ const CreateRecipePage = () => {
                   setUrl(e.target.value);
                   setError(null);
                 }}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 disabled={importing}
               />
               <button
                 type="submit"
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 whitespace-nowrap flex items-center"
+                className="w-full sm:w-auto mt-2 sm:mt-0 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 flex items-center justify-center sm:whitespace-nowrap"
                 disabled={importing}
               >
                 {importing ? (
