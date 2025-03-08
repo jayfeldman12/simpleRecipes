@@ -17,6 +17,7 @@ interface RecipeCardProps {
     cookingTime?: number;
     createdBy?: string;
     isFavorite?: boolean;
+    sourceUrl?: string;
   };
   from?: string;
   isEditable?: boolean;
@@ -156,6 +157,34 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
               </svg>
               {recipe.cookingTime} min
             </div>
+          )}
+
+          {recipe?.sourceUrl && (
+            <a
+              href={recipe.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className={`absolute top-2 ${
+                user ? "right-12" : "right-2"
+              } p-2 rounded-full bg-white shadow-md hover:bg-gray-100 transition-colors z-10`}
+              aria-label="View original recipe"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 text-blue-500"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                />
+              </svg>
+            </a>
           )}
 
           {user && recipe && (
