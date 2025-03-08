@@ -169,7 +169,7 @@ export default function RecipeDetail() {
       </Head>
 
       {/* Desktop Version */}
-      <div className="container max-w-4xl mx-auto my-8 px-4 md:block hidden">
+      <div className="container max-w-6xl mx-auto my-8 px-4 md:block hidden">
         <Link
           href={previousPage}
           className="inline-block mb-6 text-blue-500 hover:underline font-medium"
@@ -336,14 +336,14 @@ export default function RecipeDetail() {
 
             <div className="flex flex-row gap-8">
               <div className="w-1/3">
-                <div className="bg-gray-50 rounded-lg border border-gray-200 h-80 overflow-y-auto">
+                <div className="bg-gray-50 rounded-lg border border-gray-200 h-auto max-h-[600px] overflow-y-auto">
                   <div className="sticky top-0 bg-gray-50 z-10 p-4 pb-2 border-b border-gray-100">
                     <h2 className="text-xl font-semibold">Ingredients</h2>
                   </div>
                   <div className="px-4 pb-4">
-                    <ul className="space-y-2 mt-2">
+                    <ul className="space-y-3 mt-3">
                       {recipe.ingredients.map((ingredient, index) => (
-                        <li key={index} className="text-gray-700">
+                        <li key={index} className="text-gray-700 text-lg">
                           {ingredient}
                         </li>
                       ))}
@@ -353,14 +353,17 @@ export default function RecipeDetail() {
               </div>
 
               <div className="w-2/3">
-                <div className="h-80 overflow-y-auto pr-4">
+                <div className="h-auto max-h-[600px] overflow-y-auto pr-4">
                   <div className="sticky top-0 bg-white z-10 pb-2 border-b border-gray-100">
                     <h2 className="text-xl font-semibold">Instructions</h2>
                   </div>
-                  <ol className="space-y-4 mt-4">
+                  <ol className="space-y-6 mt-4 list-decimal pl-6">
                     {recipe.instructions.map((instruction, index) => (
-                      <li key={index} className="ml-6 list-decimal">
-                        <p className="text-gray-700">{instruction}</p>
+                      <li
+                        key={index}
+                        className="text-gray-700 text-lg leading-relaxed"
+                      >
+                        {instruction}
                       </li>
                     ))}
                   </ol>
