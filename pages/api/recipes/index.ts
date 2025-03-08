@@ -11,21 +11,28 @@ async function getRecipes(
   await connectDB();
 
   try {
+    // Check if the request includes a "all" parameter
+    const showAll = req.query.all === "true";
+
     // Get page from query params or default to 1
     const page = parseInt(req.query.page as string) || 1;
-    const limit = 10; // Number of recipes per page
-    const skip = (page - 1) * limit;
+    const limit = showAll ? 0 : 10; // Number of recipes per page, 0 means no limit
+    const skip = showAll ? 0 : (page - 1) * limit;
 
     // Get total count for pagination
     const total = await Recipe.countDocuments();
-    const totalPages = Math.ceil(total / limit);
+    const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
 
-    // Get recipes with pagination
-    const recipes = await Recipe.find()
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .populate("user", "username");
+    // Build query
+    let recipesQuery = Recipe.find().sort({ createdAt: -1 });
+
+    // Apply pagination only if not showing all
+    if (!showAll) {
+      recipesQuery = recipesQuery.skip(skip).limit(limit);
+    }
+
+    // Execute query
+    const recipes = await recipesQuery.populate("user", "username");
 
     // If user is authenticated, check which recipes are in their favorites
     let recipesWithFavorites = recipes;

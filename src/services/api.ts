@@ -92,8 +92,8 @@ export const authAPI = {
 // Recipe API calls
 export const recipeAPI = {
   // Get all recipes
-  getRecipes: async (page = 1, tag?: string): Promise<any> => {
-    let url = `${API_URL}/recipes?page=${page}`;
+  getRecipes: async (page = 1, tag?: string, showAll = true): Promise<any> => {
+    let url = `${API_URL}/recipes?page=${page}&all=${showAll}`;
 
     if (tag) {
       url += `&tag=${tag}`;
