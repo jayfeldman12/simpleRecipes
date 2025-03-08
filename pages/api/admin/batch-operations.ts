@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NextApiRequest, NextApiResponse } from "next";
 import { IRecipeDocument } from "../models/types";
+import { processImageUrl } from "../utils/awsS3";
 import {
   BatchOperationResult,
   batchUpdateRecipes,
@@ -92,6 +93,55 @@ const operations: Record<string, RecipeTransformFn> = {
     } else {
       // Ensure it's a Date object
       recipe.updatedAt = ensureDate(recipe.updatedAt);
+    }
+
+    return recipe;
+  },
+
+  "fix-image-urls": async (recipe: IRecipeDocument) => {
+    const cloudfrontDomain = process.env.AWS_CLOUDFRONT_DOMAIN;
+
+    if (!cloudfrontDomain) {
+      console.error("AWS_CLOUDFRONT_DOMAIN environment variable is not set");
+      return recipe;
+    }
+
+    // Only process recipes with an imageUrl that isn't already a Cloudfront URL
+    if (
+      recipe.imageUrl &&
+      typeof recipe.imageUrl === "string" &&
+      !recipe.imageUrl.includes(cloudfrontDomain) &&
+      recipe.imageUrl !== "default-recipe.jpg"
+    ) {
+      console.log(`Processing image for recipe: ${recipe.title}`);
+      console.log(`Original imageUrl: ${recipe.imageUrl}`);
+
+      try {
+        // Save original URL if not already saved
+        if (!recipe.originalImageUrl) {
+          recipe.originalImageUrl = recipe.imageUrl;
+        }
+
+        // Process the image - this will download it and upload to S3
+        const processedImageUrl = await processImageUrl(recipe.imageUrl);
+
+        // Update the imageUrl if processing was successful
+        if (processedImageUrl && processedImageUrl.includes(cloudfrontDomain)) {
+          console.log(`Updated imageUrl: ${processedImageUrl}`);
+          recipe.imageUrl = processedImageUrl;
+        } else {
+          console.log(`Image processing failed, keeping original URL`);
+        }
+      } catch (error) {
+        console.error(
+          `Error processing image for recipe ${recipe._id}:`,
+          error
+        );
+      }
+    } else {
+      console.log(
+        `Skipping recipe ${recipe.title} - image already processed or no image`
+      );
     }
 
     return recipe;

@@ -70,7 +70,7 @@ export interface BatchOperationResult {
 export type RecipeTransformFn = (
   recipe: IRecipeDocument,
   index: number
-) => IRecipeDocument;
+) => IRecipeDocument | Promise<IRecipeDocument>;
 
 /**
  * Batch update all recipes with a transform function
@@ -120,7 +120,7 @@ export async function batchUpdateRecipes(
         const original = recipe.toJSON();
         const currentIndex = recipes.indexOf(recipe);
         // Apply transform function with the current recipe and its index
-        const transformed = transformFn(recipe, currentIndex);
+        const transformed = await transformFn(recipe, currentIndex);
         // Detect if anything changed
         const didChange =
           JSON.stringify(original) !== JSON.stringify(transformed.toJSON());
