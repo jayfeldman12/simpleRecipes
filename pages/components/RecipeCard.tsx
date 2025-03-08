@@ -228,7 +228,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
         <div className="px-4 pb-4 flex justify-end space-x-2">
           <Link
             href={`/recipes/edit/${recipe._id}`}
-            className="text-gray-600 hover:text-gray-800"
+            className="text-green-700 hover:text-green-900"
           >
             <span className="sr-only">Edit</span>
             <svg
