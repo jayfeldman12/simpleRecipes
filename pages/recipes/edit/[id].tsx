@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { recipeAPI } from "../../../src/services/api";
 
 interface Recipe {
@@ -28,6 +28,33 @@ export default function EditRecipe() {
     servings: "",
     imageUrl: "",
   });
+
+  // Add refs object to store refs for textareas
+  const textareaRefs = useRef<{ [key: number]: HTMLTextAreaElement }>({});
+
+  // Function to adjust textarea height
+  const adjustTextareaHeight = (index: number) => {
+    const textarea = textareaRefs.current[index];
+    if (!textarea) return;
+
+    // Reset height to auto to get the correct scrollHeight
+    textarea.style.height = "auto";
+
+    // Calculate new height (scrollHeight gives content height)
+    // Add a little extra padding to prevent scrollbar from appearing prematurely
+    const newHeight = textarea.scrollHeight;
+
+    // Set new height
+    textarea.style.height = `${newHeight}px`;
+  };
+
+  // Effect to adjust textareas when instructions change
+  useEffect(() => {
+    // Adjust height for all instruction textareas
+    formData.instructions.forEach((_, index) => {
+      adjustTextareaHeight(index);
+    });
+  }, [formData.instructions]);
 
   useEffect(() => {
     const fetchRecipe = async () => {
@@ -89,6 +116,9 @@ export default function EditRecipe() {
     const newInstructions = [...formData.instructions];
     newInstructions[index] = value;
     setFormData({ ...formData, instructions: newInstructions });
+
+    // Schedule height adjustment for the next render
+    setTimeout(() => adjustTextareaHeight(index), 0);
   };
 
   const addIngredient = () => {
@@ -281,9 +311,12 @@ export default function EditRecipe() {
                     onChange={(e) =>
                       handleInstructionChange(index, e.target.value)
                     }
+                    ref={(el) => {
+                      if (el) textareaRefs.current[index] = el;
+                    }}
                     className="flex-1 px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    rows={2}
                     placeholder={`Step ${index + 1}`}
+                    style={{ minHeight: "60px", overflow: "hidden" }}
                     required
                   />
                   <button
