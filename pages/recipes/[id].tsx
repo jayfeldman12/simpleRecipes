@@ -331,29 +331,6 @@ export default function RecipeDetail() {
                     View Original Recipe
                   </a>
                 )}
-
-                {recipe.fullRecipe && (
-                  <Link
-                    href={`/recipes/${recipe._id}/full`}
-                    className="text-blue-500 hover:underline flex items-center"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5 mr-1"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                      />
-                    </svg>
-                    View Full Recipe
-                  </Link>
-                )}
               </div>
             </div>
 
@@ -481,14 +458,6 @@ export default function RecipeDetail() {
         {/* Footer Actions */}
         <div className="bg-white border-t border-gray-200 py-2 px-3 z-10">
           <div className="grid grid-cols-2 gap-2">
-            {recipe.fullRecipe && (
-              <Link
-                href={`/recipes/${recipe._id}/full`}
-                className="bg-blue-100 text-blue-600 py-1 px-3 rounded-md text-center text-xs"
-              >
-                View Full Recipe
-              </Link>
-            )}
             {recipe.sourceUrl && (
               <a
                 href={recipe.sourceUrl}

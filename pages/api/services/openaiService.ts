@@ -58,6 +58,7 @@ export const extractRecipeFromHTML = async (
       - cookingTime: number (optional) - Total cooking time in minutes. If not found, do not include this field.
       - servings: number (optional) - Number of servings. If not found, do not include this field.
       - imageUrl: string (optional) - URL of the recipe main image (hero image). Try to find the most relevant image, or leave as ""
+      /* fullRecipe feature temporarily disabled to reduce API costs
       - fullRecipe: string (required) - The complete recipe text in a clean, readable format with proper spacing and formatting.
       
       For the fullRecipe field:
@@ -67,6 +68,7 @@ export const extractRecipeFromHTML = async (
       5. Preserve ALL image tags (<img>) with their original src attributes. Include these at appropriate places in the content.
       6. Maintain the original flow of content, with images appearing exactly where they do in the original recipe.
       7. The result should be valid HTML that could be rendered directly in a browser.
+      */
       
       IMPORTANT:
       1. The response must ONLY contain the JSON object
@@ -171,7 +173,8 @@ export const extractRecipeFromHTML = async (
       cookingTime: parsedResponse.cookingTime,
       servings: parsedResponse.servings,
       imageUrl: parsedResponse.imageUrl || "default-recipe.jpg",
-      fullRecipe: parsedResponse.fullRecipe || htmlContent,
+      // fullRecipe temporarily disabled to reduce API costs
+      // fullRecipe: parsedResponse.fullRecipe || htmlContent,
       sourceUrl: sourceUrl || "",
       user: undefined, // Will be set by the controller
       createdAt: new Date(),

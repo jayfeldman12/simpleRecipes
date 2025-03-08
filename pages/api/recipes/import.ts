@@ -3,7 +3,7 @@ import Recipe from "../models/Recipe";
 import { fetchHtmlFromUrl } from "../services/htmlFetchService";
 import { extractRecipeFromHTML } from "../services/openaiService";
 import { AuthNextApiRequest, connectDB, withProtect } from "../utils/auth";
-import { processImageUrl, processImagesInHtml } from "../utils/awsS3";
+import { processImageUrl } from "../utils/awsS3";
 
 // @desc    Import recipe from URL
 // @route   POST /api/recipes/import
@@ -70,6 +70,7 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
 
     // Process images in fullRecipe HTML content
     let processedFullRecipe = recipeData.fullRecipe;
+    /* fullRecipe feature temporarily disabled to reduce API costs
     if (recipeData.fullRecipe) {
       try {
         processedFullRecipe = await processImagesInHtml(
@@ -87,6 +88,7 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
         // Continue with the original content if there's an error
       }
     }
+    */
 
     // Create a new recipe
     const userId = req.user._id;
@@ -96,7 +98,8 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
       sourceUrl: url, // Explicitly set the source URL
       imageUrl: processedImageUrl,
       originalImageUrl,
-      fullRecipe: processedFullRecipe,
+      // fullRecipe temporarily disabled to reduce API costs
+      // fullRecipe: processedFullRecipe,
     });
 
     // Save to database
