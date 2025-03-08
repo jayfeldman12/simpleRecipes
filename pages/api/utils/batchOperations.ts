@@ -3,6 +3,46 @@ import { IRecipeDocument } from "../models/types";
 import { connectDB } from "./auth";
 
 /**
+ * Utility function to compute the difference between two objects
+ * Returns an object containing only the properties that changed
+ */
+function computeDiff(
+  original: Record<string, any>,
+  updated: Record<string, any>
+): Record<string, any> {
+  const diff: Record<string, any> = {};
+
+  // Find all keys in either object and convert to Array for iteration
+  const allKeys = Array.from(
+    new Set([...Object.keys(original), ...Object.keys(updated)])
+  );
+
+  // Check each key for differences
+  for (const key of allKeys) {
+    const originalValue = original[key];
+    const updatedValue = updated[key];
+
+    // Skip functions, complex objects that can't be stringified easily
+    if (
+      typeof originalValue === "function" ||
+      typeof updatedValue === "function"
+    ) {
+      continue;
+    }
+
+    // Compare using JSON.stringify for simple comparison
+    if (JSON.stringify(originalValue) !== JSON.stringify(updatedValue)) {
+      diff[key] = {
+        before: originalValue,
+        after: updatedValue,
+      };
+    }
+  }
+
+  return diff;
+}
+
+/**
  * Options for batch operations
  */
 export interface BatchOperationOptions {
@@ -89,13 +129,14 @@ export async function batchUpdateRecipes(
           changed++;
           // Log changes if verbose
           if (verbose) {
+            const transformedJson = transformed.toJSON();
+            const diff = computeDiff(original, transformedJson);
+
             console.log(
               `\n🔄 Changes for Recipe: ${recipe.title} (${recipe._id}):`
             );
-            console.log("Before:");
-            console.log(JSON.stringify(original, null, 2));
-            console.log("After:");
-            console.log(JSON.stringify(transformed.toJSON(), null, 2));
+            console.log("Changes:");
+            console.log(JSON.stringify(diff, null, 2));
           }
 
           // Save changes if not in debug mode
