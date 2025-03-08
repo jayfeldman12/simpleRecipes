@@ -19,6 +19,7 @@ export interface IRecipeBase {
   originalImageUrl?: string;
   user: Types.ObjectId;
   createdAt: Date;
+  updatedAt?: Date;
   fullRecipe?: string;
   sourceUrl?: string;
 }
