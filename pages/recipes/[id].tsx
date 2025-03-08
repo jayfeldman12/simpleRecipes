@@ -417,10 +417,11 @@ export default function RecipeDetail() {
               </button>
             )}
           </div>
-          <h1 className="text-xl font-bold text-gray-800 mt-1">
+          {/* Mobile Recipe Title & Description */}
+          <h1 className="text-2xl font-bold text-gray-800 mt-1">
             {recipe.title}
           </h1>
-          <p className="text-gray-600 text-xs mt-1 line-clamp-2">
+          <p className="text-gray-600 text-sm mt-1 line-clamp-2">
             {recipe.description}
           </p>
         </div>
@@ -429,11 +430,11 @@ export default function RecipeDetail() {
           {/* Ingredients Section - Top 1/3 */}
           <div className="bg-gray-50 border-b border-gray-200 h-2/5 overflow-y-auto">
             <div className="sticky top-0 bg-gray-50 z-10 py-1 px-3 border-b border-gray-100">
-              <h2 className="text-base font-semibold">Ingredients</h2>
+              <h2 className="text-lg font-semibold">Ingredients</h2>
             </div>
             <ul className="space-y-1 p-3 pt-2">
               {recipe.ingredients.map((ingredient, index) => (
-                <li key={index} className="text-gray-700 text-sm">
+                <li key={index} className="text-gray-700 text-base">
                   {ingredient}
                 </li>
               ))}
@@ -443,11 +444,11 @@ export default function RecipeDetail() {
           {/* Instructions Section - Bottom 2/3 */}
           <div className="flex-1 h-3/5 overflow-y-auto">
             <div className="sticky top-0 bg-white z-10 py-1 px-3 border-b border-gray-100">
-              <h2 className="text-base font-semibold">Instructions</h2>
+              <h2 className="text-lg font-semibold">Instructions</h2>
             </div>
             <ol className="space-y-3 p-3 pt-2">
               {recipe.instructions.map((instruction, index) => (
-                <li key={index} className="ml-5 list-decimal text-sm">
+                <li key={index} className="ml-5 list-decimal text-base">
                   <p className="text-gray-700">{instruction}</p>
                 </li>
               ))}
@@ -463,7 +464,7 @@ export default function RecipeDetail() {
                 href={recipe.sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="bg-blue-100 text-blue-600 py-1 px-4 rounded-md text-center text-xs w-auto mx-auto"
+                className="bg-blue-100 text-blue-600 py-1 px-4 rounded-md text-center text-sm w-auto mx-auto"
               >
                 View Original
               </a>
@@ -473,13 +474,13 @@ export default function RecipeDetail() {
             <div className="grid grid-cols-2 gap-2 mt-2">
               <Link
                 href={`/recipes/edit/${recipe._id}`}
-                className="bg-gray-100 text-gray-600 py-1 px-3 rounded-md text-center text-xs"
+                className="bg-gray-100 text-gray-600 py-1 px-3 rounded-md text-center text-sm"
               >
                 Edit Recipe
               </Link>
               <button
                 onClick={handleDelete}
-                className="bg-red-100 text-red-600 py-1 px-3 rounded-md text-center text-xs"
+                className="bg-red-100 text-red-600 py-1 px-3 rounded-md text-center text-sm"
               >
                 Delete Recipe
               </button>
