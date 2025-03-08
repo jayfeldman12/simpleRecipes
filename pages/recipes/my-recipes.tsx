@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import ProtectedRoute from "../../src/components/ProtectedRoute";
 import { useAuth } from "../../src/context/AuthContext";
 import { recipeAPI } from "../../src/services/api";
-import RecipeCard from "../components/RecipeCard";
+import RecipeCard, { favoritesUpdated } from "../components/RecipeCard";
 
 interface Recipe {
   _id: string;
@@ -46,7 +46,16 @@ const MyRecipesPage = () => {
           isFavorite: Boolean(recipe.isFavorite),
         }));
 
-        setRecipes(processedRecipes);
+        // Sort recipes - favorites first
+        const sortedRecipes = processedRecipes.sort((a: Recipe, b: Recipe) => {
+          // If one is favorite and other is not, favorite comes first
+          if (a.isFavorite && !b.isFavorite) return -1;
+          if (!a.isFavorite && b.isFavorite) return 1;
+          // Otherwise maintain existing order
+          return 0;
+        });
+
+        setRecipes(sortedRecipes);
       } catch (err) {
         console.error("Failed to fetch recipes:", err);
         setError("Failed to load your recipes. Please try again later.");
@@ -56,6 +65,41 @@ const MyRecipesPage = () => {
     };
 
     fetchUserRecipes();
+  }, []);
+
+  // Listen for favorites changes
+  useEffect(() => {
+    const handleFavoritesChange = (e: Event) => {
+      if (e instanceof CustomEvent && e.detail) {
+        const { recipeId, isFavorite } = e.detail;
+
+        // Update the isFavorite status for this recipe in our state
+        setRecipes((prevRecipes) => {
+          const updatedRecipes = prevRecipes.map((recipe) =>
+            recipe._id === recipeId ? { ...recipe, isFavorite } : recipe
+          );
+
+          // Re-sort the recipes to keep favorites at the top
+          return updatedRecipes.sort((a: Recipe, b: Recipe) => {
+            if (a.isFavorite && !b.isFavorite) return -1;
+            if (!a.isFavorite && b.isFavorite) return 1;
+            return 0;
+          });
+        });
+      }
+    };
+
+    favoritesUpdated.addEventListener(
+      "favoritesChanged",
+      handleFavoritesChange
+    );
+
+    return () => {
+      favoritesUpdated.removeEventListener(
+        "favoritesChanged",
+        handleFavoritesChange
+      );
+    };
   }, []);
 
   const handleDeleteRecipe = async (recipeId: string) => {

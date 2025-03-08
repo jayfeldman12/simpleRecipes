@@ -50,7 +50,16 @@ export default function RecipeList() {
         isFavorite: Boolean(recipe.isFavorite),
       }));
 
-      setRecipes(processed);
+      // Sort recipes - favorites first
+      const sortedRecipes = processed.sort((a: Recipe, b: Recipe) => {
+        // If one is favorite and other is not, favorite comes first
+        if (a.isFavorite && !b.isFavorite) return -1;
+        if (!a.isFavorite && b.isFavorite) return 1;
+        // Otherwise sort by creation date (assuming newer recipes should be shown first)
+        return 0;
+      });
+
+      setRecipes(sortedRecipes);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
       console.error(err);
@@ -70,11 +79,18 @@ export default function RecipeList() {
         const { recipeId, isFavorite } = e.detail;
 
         // Update the isFavorite status for this recipe in our state
-        setRecipes((prevRecipes) =>
-          prevRecipes.map((recipe) =>
+        setRecipes((prevRecipes) => {
+          const updatedRecipes = prevRecipes.map((recipe) =>
             recipe._id === recipeId ? { ...recipe, isFavorite } : recipe
-          )
-        );
+          );
+
+          // Re-sort the recipes to keep favorites at the top
+          return updatedRecipes.sort((a: Recipe, b: Recipe) => {
+            if (a.isFavorite && !b.isFavorite) return -1;
+            if (!a.isFavorite && b.isFavorite) return 1;
+            return 0;
+          });
+        });
       }
     };
 
@@ -103,7 +119,7 @@ export default function RecipeList() {
           <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
             All Recipes
           </h1>
-          <p className="mt-3 max-w-2xl mx-auto text-xl text-gray-500 sm:mt-4">
+          <p className="mt-3 mb-8 max-w-2xl mx-auto text-xl text-gray-500 sm:mt-4">
             Browse through recipes shared by our community
           </p>
         </div>
