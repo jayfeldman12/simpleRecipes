@@ -112,9 +112,17 @@ const FavoritesPage = () => {
         <title>My Favorites | Simple Recipes</title>
       </Head>
       <div className="container mx-auto px-4">
-        <h1 className="text-3xl font-bold text-gray-800 mb-8">
-          My Favorite Recipes
-        </h1>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-800">
+            My Favorite Recipes
+          </h1>
+          <Link
+            href="/recipes/create"
+            className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+          >
+            Create New Recipe
+          </Link>
+        </div>
 
         {loading ? (
           <div className="flex justify-center my-12">

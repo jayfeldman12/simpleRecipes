@@ -1,4 +1,5 @@
 import Head from "next/head";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { useAuth } from "../../src/context/AuthContext";
@@ -115,13 +116,25 @@ export default function RecipeList() {
       </Head>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center">
-          <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-            All Recipes
-          </h1>
-          <p className="mt-3 mb-8 max-w-2xl mx-auto text-xl text-gray-500 sm:mt-4">
-            Browse through recipes shared by our community
-          </p>
+        <div className="sm:flex sm:items-center sm:justify-between mb-6">
+          <div className="text-center sm:text-left">
+            <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
+              All Recipes
+            </h1>
+            <p className="mt-2 text-xl text-gray-500">
+              Browse through recipes shared by our community
+            </p>
+          </div>
+          {user && (
+            <div className="mt-4 sm:mt-0">
+              <Link
+                href="/recipes/create"
+                className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg transition-colors whitespace-nowrap inline-flex"
+              >
+                Create New Recipe
+              </Link>
+            </div>
+          )}
         </div>
 
         {loading ? (
