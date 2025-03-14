@@ -1,29 +1,23 @@
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import { recipeAPI } from "../../../src/services/api";
-
-interface Recipe {
-  _id: string;
-  title: string;
-  description: string;
-  ingredients: string[];
-  instructions: string[];
-  cookingTime?: number;
-  servings?: number;
-  imageUrl: string;
-}
+import {
+  IngredientType,
+  InstructionItem,
+  Recipe as RecipeType,
+} from "../../../src/types/recipe";
 
 export default function EditRecipe() {
   const router = useRouter();
   const { id } = router.query;
-  const [recipe, setRecipe] = useState<Recipe | null>(null);
+  const [recipe, setRecipe] = useState<RecipeType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    ingredients: [""],
-    instructions: [""],
+    ingredients: [] as IngredientType[],
+    instructions: [] as InstructionItem[],
     cookingTime: "",
     servings: "",
     imageUrl: "",
@@ -86,11 +80,11 @@ export default function EditRecipe() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!recipe) return;
+    if (!recipe || !recipe._id) return;
 
     try {
       setLoading(true);
-      await recipeAPI.updateRecipe(recipe._id, {
+      await recipeAPI.updateRecipe(recipe._id as string, {
         ...formData,
         cookingTime: formData.cookingTime
           ? parseInt(formData.cookingTime)
@@ -108,13 +102,18 @@ export default function EditRecipe() {
 
   const handleIngredientChange = (index: number, value: string) => {
     const newIngredients = [...formData.ingredients];
-    newIngredients[index] = value;
+    if ("text" in newIngredients[index]) {
+      (newIngredients[index] as any).text = value;
+    } else {
+      // For now, just replace with a simple ingredient if it was a section
+      newIngredients[index] = { text: value };
+    }
     setFormData({ ...formData, ingredients: newIngredients });
   };
 
   const handleInstructionChange = (index: number, value: string) => {
     const newInstructions = [...formData.instructions];
-    newInstructions[index] = value;
+    newInstructions[index] = { ...newInstructions[index], text: value };
     setFormData({ ...formData, instructions: newInstructions });
 
     // Schedule height adjustment for the next render
@@ -122,11 +121,17 @@ export default function EditRecipe() {
   };
 
   const addIngredient = () => {
-    setFormData({ ...formData, ingredients: [...formData.ingredients, ""] });
+    setFormData({
+      ...formData,
+      ingredients: [...formData.ingredients, { text: "" }],
+    });
   };
 
   const addInstruction = () => {
-    setFormData({ ...formData, instructions: [...formData.instructions, ""] });
+    setFormData({
+      ...formData,
+      instructions: [...formData.instructions, { text: "" }],
+    });
   };
 
   const removeIngredient = (index: number) => {
@@ -249,7 +254,7 @@ export default function EditRecipe() {
                 <div key={index} className="flex gap-2">
                   <input
                     type="text"
-                    value={ingredient}
+                    value={"text" in ingredient ? ingredient.text : "Section"}
                     onChange={(e) =>
                       handleIngredientChange(index, e.target.value)
                     }
@@ -307,7 +312,7 @@ export default function EditRecipe() {
               {formData.instructions.map((instruction, index) => (
                 <div key={index} className="flex gap-2">
                   <textarea
-                    value={instruction}
+                    value={instruction.text}
                     onChange={(e) =>
                       handleInstructionChange(index, e.target.value)
                     }

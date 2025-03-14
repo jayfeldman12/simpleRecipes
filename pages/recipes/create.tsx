@@ -170,17 +170,22 @@ const CreateRecipePage = () => {
 
     // Parse ingredients
     if (recipeData.ingredients && recipeData.ingredients.length > 0) {
+      // The imported data is already in the correct format
+      // We need to convert it if needed
       const parsedIngredients = recipeData.ingredients.map(
-        (ingredientStr: string) => {
-          // Try to extract amount and name with a regex
-          const match = ingredientStr.match(/^([\d\s\/\.\,]+)(.+)$/);
-          if (match) {
-            return {
-              amount: match[1].trim(),
-              name: match[2].trim(),
-            };
+        (ingredient: any) => {
+          if (typeof ingredient === "string") {
+            // Legacy string format - convert to object
+            const match = ingredient.match(/^([\d\s\/\.\,]+)(.+)$/);
+            if (match) {
+              return {
+                text: ingredient,
+                optional: false,
+              };
+            }
+            return { text: ingredient, optional: false };
           }
-          return { amount: "", name: ingredientStr.trim() };
+          return ingredient; // Already in the correct format
         }
       );
       setIngredients(parsedIngredients);
@@ -188,7 +193,16 @@ const CreateRecipePage = () => {
 
     // Set instructions
     if (recipeData.instructions && recipeData.instructions.length > 0) {
-      setInstructions(recipeData.instructions);
+      // Handle instructions that might be in string format
+      const parsedInstructions = recipeData.instructions.map(
+        (instruction: any) => {
+          if (typeof instruction === "string") {
+            return { text: instruction };
+          }
+          return instruction; // Already in the correct format
+        }
+      );
+      setInstructions(parsedInstructions);
     }
   };
 

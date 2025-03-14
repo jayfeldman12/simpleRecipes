@@ -38,7 +38,7 @@ const RenderIngredients = ({
           // This is a section
           return (
             <li key={index} className="mt-4 first:mt-0">
-              <h3 className="font-semibold text-gray-800 mb-2">
+              <h3 className="font-bold text-gray-800 mb-2 text-lg">
                 {item.sectionTitle}
               </h3>
               <RenderIngredients ingredients={item.ingredients} />
