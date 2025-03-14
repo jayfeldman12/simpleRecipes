@@ -4,11 +4,12 @@ import { useRouter } from "next/router";
 import React, { useState } from "react";
 import ProtectedRoute from "../../src/components/ProtectedRoute";
 import { recipeAPI } from "../../src/services/api";
-
-interface Ingredient {
-  amount: string;
-  name: string;
-}
+import {
+  IngredientItem,
+  IngredientSection,
+  IngredientType,
+  InstructionItem,
+} from "../../src/types/recipe";
 
 const CreateRecipePage = () => {
   const router = useRouter();
@@ -18,10 +19,20 @@ const CreateRecipePage = () => {
   const [prepTime, setPrepTime] = useState("");
   const [cookTime, setCookTime] = useState("");
   const [servings, setServings] = useState("");
-  const [ingredients, setIngredients] = useState<Ingredient[]>([
-    { amount: "", name: "" },
+
+  // Default to a single empty ingredient
+  const [ingredients, setIngredients] = useState<IngredientType[]>([
+    { text: "" },
   ]);
-  const [instructions, setInstructions] = useState<string[]>([""]);
+
+  // Track if we have any ingredient sections
+  const [hasIngredientSections, setHasIngredientSections] = useState(false);
+
+  // Default to a single empty instruction
+  const [instructions, setInstructions] = useState<InstructionItem[]>([
+    { text: "" },
+  ]);
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,11 +50,28 @@ const CreateRecipePage = () => {
       return;
     }
 
-    // Filter out empty ingredients and instructions
-    const filteredIngredients = ingredients.filter(
-      (ing) => ing.amount.trim() || ing.name.trim()
+    // Filter out empty ingredients
+    const filteredIngredients = hasIngredientSections
+      ? ingredients.filter((item) => {
+          if ("sectionTitle" in item) {
+            // For sections, keep if they have a title and at least one non-empty ingredient
+            return (
+              item.sectionTitle.trim() &&
+              item.ingredients.some((ing) =>
+                "text" in ing ? ing.text.trim() : true
+              )
+            );
+          } else {
+            // For regular ingredients, keep if they have text
+            return item.text.trim();
+          }
+        })
+      : ingredients.filter((item) => "text" in item && item.text.trim());
+
+    // Filter out empty instructions
+    const filteredInstructions = instructions.filter((inst) =>
+      inst.text.trim()
     );
-    const filteredInstructions = instructions.filter((inst) => inst.trim());
 
     if (filteredIngredients.length === 0) {
       setError("At least one ingredient is required.");
@@ -55,34 +83,40 @@ const CreateRecipePage = () => {
       return;
     }
 
+    // Calculate cooking time from prep + cook time
+    let cookingTime = null;
+    if (prepTime && cookTime) {
+      cookingTime = parseInt(prepTime) + parseInt(cookTime);
+    } else if (prepTime) {
+      cookingTime = parseInt(prepTime);
+    } else if (cookTime) {
+      cookingTime = parseInt(cookTime);
+    }
+
+    const recipeData = {
+      title,
+      description,
+      ingredients: filteredIngredients,
+      instructions: filteredInstructions,
+      cookingTime: cookingTime || undefined,
+      servings: servings ? parseInt(servings) : undefined,
+      imageUrl: imageUrl || undefined,
+      sourceUrl: url || undefined,
+    };
+
     try {
       setIsLoading(true);
-
-      const recipeData = {
-        title,
-        description,
-        imageUrl: imageUrl || undefined,
-        prepTimeMinutes: prepTime ? parseInt(prepTime) : undefined,
-        cookTimeMinutes: cookTime ? parseInt(cookTime) : undefined,
-        servings: servings ? parseInt(servings) : undefined,
-        ingredients: filteredIngredients,
-        instructions: filteredInstructions,
-      };
-
-      const result = await recipeAPI.createRecipe(recipeData);
-      router.push(`/recipes/${result.id}`);
-    } catch (err: any) {
-      console.error("Error creating recipe:", err);
-      setError(
-        err.message || "Failed to create recipe. Please try again later."
-      );
-    } finally {
+      const response = await recipeAPI.createRecipe(recipeData);
+      router.push(`/recipes/${response._id}`);
+    } catch (err) {
+      console.error("Failed to create recipe:", err);
+      setError("Failed to create recipe. Please try again.");
       setIsLoading(false);
     }
   };
 
   const handleAddIngredient = () => {
-    setIngredients([...ingredients, { amount: "", name: "" }]);
+    setIngredients([...ingredients, { text: "" }]);
   };
 
   const handleRemoveIngredient = (index: number) => {
@@ -91,18 +125,19 @@ const CreateRecipePage = () => {
     setIngredients(newIngredients);
   };
 
-  const handleIngredientChange = (
-    index: number,
-    field: keyof Ingredient,
-    value: string
-  ) => {
+  const handleIngredientChange = (index: number, value: string) => {
     const newIngredients = [...ingredients];
-    newIngredients[index][field] = value;
+
+    // Check if this ingredient is a simple ingredient item
+    if ("text" in newIngredients[index]) {
+      (newIngredients[index] as IngredientItem).text = value;
+    }
+
     setIngredients(newIngredients);
   };
 
   const handleAddInstruction = () => {
-    setInstructions([...instructions, ""]);
+    setInstructions([...instructions, { text: "" }]);
   };
 
   const handleRemoveInstruction = (index: number) => {
@@ -113,7 +148,7 @@ const CreateRecipePage = () => {
 
   const handleInstructionChange = (index: number, value: string) => {
     const newInstructions = [...instructions];
-    newInstructions[index] = value;
+    newInstructions[index].text = value;
     setInstructions(newInstructions);
   };
 
@@ -442,8 +477,8 @@ const CreateRecipePage = () => {
 
               <div className="mb-6">
                 <div className="flex justify-between items-center mb-2">
-                  <label className="block text-gray-700 font-medium">
-                    Ingredients*
+                  <label className="block text-gray-700 font-semibold">
+                    Ingredients
                   </label>
                   <button
                     type="button"
@@ -454,35 +489,221 @@ const CreateRecipePage = () => {
                   </button>
                 </div>
                 {ingredients.map((ingredient, index) => (
-                  <div
-                    key={`ingredient-${index}`}
-                    className="flex gap-2 mb-2 items-center"
-                  >
-                    <input
-                      type="text"
-                      value={ingredient.amount}
-                      onChange={(e) =>
-                        handleIngredientChange(index, "amount", e.target.value)
-                      }
-                      className="w-1/3 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Amount"
-                    />
-                    <input
-                      type="text"
-                      value={ingredient.name}
-                      onChange={(e) =>
-                        handleIngredientChange(index, "name", e.target.value)
-                      }
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Ingredient name"
-                    />
+                  <div key={index} className="flex items-center gap-2 mb-2">
+                    {/* Check if this is a regular ingredient or a section */}
+                    {"text" in ingredient ? (
+                      // Regular ingredient
+                      <div className="flex flex-col w-full">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={ingredient.text}
+                            onChange={(e) =>
+                              handleIngredientChange(index, e.target.value)
+                            }
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Ingredient"
+                          />
+                          {/* Button to convert to section */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newIngredients = [...ingredients];
+                              newIngredients[index] = {
+                                sectionTitle: ingredient.text || "New Section",
+                                ingredients: [{ text: "" }],
+                              };
+                              setIngredients(newIngredients);
+                              setHasIngredientSections(true);
+                            }}
+                            className="text-indigo-600 hover:text-indigo-800"
+                          >
+                            Make Section
+                          </button>
+                        </div>
+                        <div className="flex items-center mt-1 ml-1">
+                          <input
+                            type="checkbox"
+                            id={`ingredient-optional-${index}`}
+                            checked={ingredient.optional || false}
+                            onChange={(e) => {
+                              const newIngredients = [...ingredients];
+                              (
+                                newIngredients[index] as IngredientItem
+                              ).optional = e.target.checked;
+                              setIngredients(newIngredients);
+                            }}
+                            className="mr-2 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                          />
+                          <label
+                            htmlFor={`ingredient-optional-${index}`}
+                            className="text-sm text-gray-600"
+                          >
+                            Optional ingredient
+                          </label>
+                        </div>
+                      </div>
+                    ) : (
+                      // Section
+                      <div className="w-full border border-gray-200 rounded-md p-3 mb-2">
+                        <input
+                          type="text"
+                          value={ingredient.sectionTitle}
+                          onChange={(e) => {
+                            const newIngredients = [...ingredients];
+                            (
+                              newIngredients[index] as IngredientSection
+                            ).sectionTitle = e.target.value;
+                            setIngredients(newIngredients);
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
+                          placeholder="Section Title"
+                        />
+
+                        {/* Sub-ingredients */}
+                        {ingredient.ingredients.map(
+                          (subIngredient, subIndex) => (
+                            <div
+                              key={subIndex}
+                              className="flex flex-col gap-1 mb-2 pl-4"
+                            >
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  value={
+                                    "text" in subIngredient
+                                      ? subIngredient.text
+                                      : ""
+                                  }
+                                  onChange={(e) => {
+                                    const newIngredients = [...ingredients];
+                                    const section = newIngredients[
+                                      index
+                                    ] as IngredientSection;
+                                    if (
+                                      "text" in section.ingredients[subIndex]
+                                    ) {
+                                      (
+                                        section.ingredients[
+                                          subIndex
+                                        ] as IngredientItem
+                                      ).text = e.target.value;
+                                    }
+                                    setIngredients(newIngredients);
+                                  }}
+                                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="Ingredient"
+                                />
+
+                                {/* Remove sub-ingredient button */}
+                                {ingredient.ingredients.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newIngredients = [...ingredients];
+                                      const section = newIngredients[
+                                        index
+                                      ] as IngredientSection;
+                                      section.ingredients =
+                                        section.ingredients.filter(
+                                          (_, i) => i !== subIndex
+                                        );
+                                      setIngredients(newIngredients);
+                                    }}
+                                    className="text-red-500 hover:text-red-700"
+                                  >
+                                    <span className="sr-only">Remove</span>
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      className="h-5 w-5"
+                                      viewBox="0 0 20 20"
+                                      fill="currentColor"
+                                    >
+                                      <path
+                                        fillRule="evenodd"
+                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z"
+                                        clipRule="evenodd"
+                                      />
+                                    </svg>
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Optional checkbox for sub-ingredients */}
+                              {"text" in subIngredient && (
+                                <div className="flex items-center ml-1">
+                                  <input
+                                    type="checkbox"
+                                    id={`sub-ingredient-optional-${index}-${subIndex}`}
+                                    checked={subIngredient.optional || false}
+                                    onChange={(e) => {
+                                      const newIngredients = [...ingredients];
+                                      const section = newIngredients[
+                                        index
+                                      ] as IngredientSection;
+                                      if (
+                                        "text" in section.ingredients[subIndex]
+                                      ) {
+                                        (
+                                          section.ingredients[
+                                            subIndex
+                                          ] as IngredientItem
+                                        ).optional = e.target.checked;
+                                      }
+                                      setIngredients(newIngredients);
+                                    }}
+                                    className="mr-2 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                                  />
+                                  <label
+                                    htmlFor={`sub-ingredient-optional-${index}-${subIndex}`}
+                                    className="text-sm text-gray-600"
+                                  >
+                                    Optional ingredient
+                                  </label>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        )}
+
+                        {/* Add sub-ingredient button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newIngredients = [...ingredients];
+                            const section = newIngredients[
+                              index
+                            ] as IngredientSection;
+                            section.ingredients.push({ text: "" });
+                            setIngredients(newIngredients);
+                          }}
+                          className="ml-4 text-indigo-600 hover:text-indigo-800"
+                        >
+                          + Add Ingredient to Section
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Remove ingredient button */}
                     {ingredients.length > 1 && (
                       <button
                         type="button"
                         onClick={() => handleRemoveIngredient(index)}
                         className="text-red-500 hover:text-red-700"
                       >
-                        Remove
+                        <span className="sr-only">Remove</span>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-5 w-5"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
                       </button>
                     )}
                   </div>
@@ -491,8 +712,8 @@ const CreateRecipePage = () => {
 
               <div className="mb-6">
                 <div className="flex justify-between items-center mb-2">
-                  <label className="block text-gray-700 font-medium">
-                    Instructions*
+                  <label className="block text-gray-700 font-semibold">
+                    Instructions
                   </label>
                   <button
                     type="button"
@@ -503,31 +724,42 @@ const CreateRecipePage = () => {
                   </button>
                 </div>
                 {instructions.map((instruction, index) => (
-                  <div
-                    key={`instruction-${index}`}
-                    className="flex gap-2 mb-2 items-start"
-                  >
-                    <span className="mt-2 text-gray-500 font-medium">
-                      {index + 1}.
-                    </span>
-                    <textarea
-                      value={instruction}
-                      onChange={(e) =>
-                        handleInstructionChange(index, e.target.value)
-                      }
-                      rows={2}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Instruction step"
-                    />
-                    {instructions.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveInstruction(index)}
-                        className="text-red-500 hover:text-red-700 mt-2"
-                      >
-                        Remove
-                      </button>
-                    )}
+                  <div key={index} className="mb-2">
+                    <div className="flex gap-2 items-start">
+                      <span className="bg-gray-200 rounded-full w-6 h-6 flex items-center justify-center text-gray-700 font-medium flex-shrink-0 mt-2">
+                        {index + 1}
+                      </span>
+                      <textarea
+                        value={instruction.text}
+                        onChange={(e) =>
+                          handleInstructionChange(index, e.target.value)
+                        }
+                        rows={2}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder={`Step ${index + 1}`}
+                      />
+                      {instructions.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveInstruction(index)}
+                          className="text-red-500 hover:text-red-700 mt-2"
+                        >
+                          <span className="sr-only">Remove</span>
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-5 w-5"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

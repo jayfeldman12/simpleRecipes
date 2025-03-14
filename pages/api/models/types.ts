@@ -1,4 +1,5 @@
 import { Document, Model, Types } from "mongoose";
+import { IngredientType, InstructionItem } from "../../../src/types/recipe";
 
 // Base interfaces (without Document extension)
 export interface IUserBase {
@@ -11,8 +12,8 @@ export interface IUserBase {
 export interface IRecipeBase {
   title: string;
   description: string;
-  ingredients: string[];
-  instructions: string[];
+  ingredients: Array<IngredientType>;
+  instructions: Array<InstructionItem>;
   cookingTime?: number;
   servings?: number;
   imageUrl: string;

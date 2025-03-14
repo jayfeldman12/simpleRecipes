@@ -4,26 +4,58 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { useAuth } from "../../src/context/AuthContext";
 import { recipeAPI } from "../../src/services/api";
+import { IngredientItem, IngredientType, Recipe } from "../../src/types/recipe";
 import { favoritesUpdated } from "../components/RecipeCard";
 
-interface Recipe {
-  _id: string;
-  title: string;
-  imageUrl: string;
-  description: string;
-  ingredients: string[];
-  instructions: string[];
-  cookingTime?: number;
-  servings?: number;
-  fullRecipe?: string;
-  sourceUrl?: string;
-  user: {
-    _id: string;
-    username: string;
+// Helper component to recursively render ingredients
+const RenderIngredients = ({
+  ingredients,
+}: {
+  ingredients: Array<IngredientType>;
+}) => {
+  // Helper function to render optional ingredients with appropriate formatting
+  const renderIngredientText = (item: IngredientItem) => {
+    // Check if already contains the word "optional" in the text
+    const containsOptional = item.text.toLowerCase().includes("optional");
+
+    if (item.optional && !containsOptional) {
+      return (
+        <span>
+          <span className="italic text-gray-500">Optional: </span>
+          {item.text}
+        </span>
+      );
+    } else {
+      return item.text;
+    }
   };
-  createdAt: string;
-  isFavorite?: boolean;
-}
+
+  return (
+    <ul className="space-y-3">
+      {ingredients.map((item, index) => {
+        // Check if this is a section or a regular ingredient
+        if ("sectionTitle" in item) {
+          // This is a section
+          return (
+            <li key={index} className="mt-4 first:mt-0">
+              <h3 className="font-semibold text-gray-800 mb-2">
+                {item.sectionTitle}
+              </h3>
+              <RenderIngredients ingredients={item.ingredients} />
+            </li>
+          );
+        } else {
+          // This is a regular ingredient
+          return (
+            <li key={index} className="text-gray-700 text-lg">
+              {renderIngredientText(item)}
+            </li>
+          );
+        }
+      })}
+    </ul>
+  );
+};
 
 export default function RecipeDetail() {
   const router = useRouter();
@@ -341,13 +373,7 @@ export default function RecipeDetail() {
                     <h2 className="text-xl font-semibold">Ingredients</h2>
                   </div>
                   <div className="px-4 pb-4">
-                    <ul className="space-y-3 mt-3">
-                      {recipe.ingredients.map((ingredient, index) => (
-                        <li key={index} className="text-gray-700 text-lg">
-                          {ingredient}
-                        </li>
-                      ))}
-                    </ul>
+                    <RenderIngredients ingredients={recipe.ingredients} />
                   </div>
                 </div>
               </div>
@@ -363,7 +389,7 @@ export default function RecipeDetail() {
                         key={index}
                         className="text-gray-700 text-lg leading-relaxed"
                       >
-                        {instruction}
+                        {instruction.text}
                       </li>
                     ))}
                   </ol>
@@ -435,13 +461,9 @@ export default function RecipeDetail() {
             <div className="sticky top-0 bg-gray-50 z-10 py-1 px-3 border-b border-gray-100">
               <h2 className="text-lg font-semibold">Ingredients</h2>
             </div>
-            <ul className="space-y-1 p-3 pt-2">
-              {recipe.ingredients.map((ingredient, index) => (
-                <li key={index} className="text-gray-700 text-base">
-                  {ingredient}
-                </li>
-              ))}
-            </ul>
+            <div className="p-3 pt-2">
+              <RenderIngredients ingredients={recipe.ingredients} />
+            </div>
           </div>
 
           {/* Instructions Section - Bottom 2/3 */}
@@ -452,7 +474,7 @@ export default function RecipeDetail() {
             <ol className="space-y-3 p-3 pt-2">
               {recipe.instructions.map((instruction, index) => (
                 <li key={index} className="ml-5 list-decimal text-base">
-                  <p className="text-gray-700">{instruction}</p>
+                  <p className="text-gray-700">{instruction.text}</p>
                 </li>
               ))}
             </ol>

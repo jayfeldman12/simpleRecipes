@@ -17,18 +17,26 @@ const RecipeSchema = new Schema<IRecipeDocument>(
       type: String,
       required: [true, "Recipe description is required"],
     },
-    ingredients: [
-      {
-        type: String,
-        required: [true, "Ingredients are required"],
+    ingredients: {
+      type: mongoose.Schema.Types.Mixed, // Use Mixed type to allow for the complex structure
+      required: [true, "Ingredients are required"],
+      validate: {
+        validator: function (v: any[]) {
+          return Array.isArray(v) && v.length > 0;
+        },
+        message: "At least one ingredient is required",
       },
-    ],
-    instructions: [
-      {
-        type: String,
-        required: [true, "Instructions are required"],
+    },
+    instructions: {
+      type: mongoose.Schema.Types.Mixed, // Use Mixed type to allow for the complex structure
+      required: [true, "Instructions are required"],
+      validate: {
+        validator: function (v: any[]) {
+          return Array.isArray(v) && v.length > 0;
+        },
+        message: "At least one instruction is required",
       },
-    ],
+    },
     cookingTime: {
       type: Number,
       required: false,

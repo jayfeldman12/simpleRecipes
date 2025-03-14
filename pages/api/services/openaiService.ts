@@ -5,7 +5,7 @@
  */
 
 import OpenAI from "openai";
-import { IRecipeBase } from "../models/types";
+import { Recipe } from "../../../src/types/recipe";
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -21,7 +21,7 @@ const openai = new OpenAI({
 export const extractRecipeFromHTML = async (
   htmlContent: string,
   sourceUrl?: string
-): Promise<IRecipeBase | null> => {
+): Promise<Recipe | null> => {
   try {
     console.log(
       `Received optimized HTML content length: ${htmlContent.length} characters`
@@ -53,18 +53,35 @@ export const extractRecipeFromHTML = async (
       Return a valid JSON object with these fields:
       - title: string (required) - The recipe title
       - description: string (required) - A brief description of the recipe
-      - ingredients: string[] (required) - Each element should be a separate ingredient with amount and unit. Do not add substitutes. If they give units in the metric and imperial system, just use the imperial system unit and drop the metric unit. If there is extra information, like the butter needs to be softened, that should be included in as few words as possible, no need to keep the exact original wording as long as the meaning is the same.  The format should be '[amount] [ingredient] (extra info, if needed)'.
-      - instructions: string[] (required) - Each element should be a separate instruction step
+      - ingredients: array (required) - Array of ingredient objects, each with:
+        - text: string (required) - The ingredient text with amount and unit
+        - optional: boolean (optional) - Whether the ingredient is optional
+        Notes: Don't add substitutes. Use imperial units instead of metric when both are given. If there is extra information, like the butter needs to be softened, that should be included in as few words as possible, no need to keep the exact original wording as long as the meaning is the same. Format should be '[amount] [ingredient] (extra info, if needed)'. If the recipe groups ingredients into sections (like "For the cake", "For the frosting"), organize them accordingly.
+      - instructions: array (required) - Array of instruction objects, each with:
+        - text: string (required) - A separate instruction step
       - cookingTime: number (optional) - Total cooking time in minutes. If not found, do not include this field.
       - servings: number (optional) - Number of servings. If not found, do not include this field.
       - imageUrl: string (optional) - URL of the recipe main image (hero image). Try to find the most relevant image, which will often be the first image in the article. If you cannot figure out the main image, try to use any image in the article. If you cannot find any images, leave as ""
-      
       
       IMPORTANT:
       1. The response must ONLY contain the JSON object
       2. Look for ingredients lists, preparation steps, cooking times, and recipe metadata
       3. If the HTML doesn't contain recipe information, return { "error": "No recipe found" }
       4. Maintain the original measurements and ingredient names
+      5. For ingredients with sections, use this structure:
+         {
+           "ingredients": [
+             { "text": "1 cup flour" },
+             { "text": "2 tbsp sugar", "optional": true },
+             { 
+               "sectionTitle": "For the frosting",
+               "ingredients": [
+                 { "text": "1 cup powdered sugar" },
+                 { "text": "2 tbsp butter" }
+               ]
+             }
+           ]
+         }
       
       Here's the HTML content:
       ${processedHtml}
@@ -128,14 +145,39 @@ export const extractRecipeFromHTML = async (
       return null;
     }
 
-    // Ensure arrays are properly formatted
-    parsedResponse.ingredients = Array.isArray(parsedResponse.ingredients)
-      ? parsedResponse.ingredients
-      : [parsedResponse.ingredients];
+    // Ensure arrays are properly formatted and structured correctly
+    if (!Array.isArray(parsedResponse.ingredients)) {
+      parsedResponse.ingredients = [
+        { text: String(parsedResponse.ingredients) },
+      ];
+    } else {
+      // Convert simple string ingredients to proper format if needed
+      parsedResponse.ingredients = parsedResponse.ingredients.map(
+        (item: any) => {
+          if (typeof item === "string") {
+            return { text: item };
+          }
+          return item;
+        }
+      );
+    }
 
-    parsedResponse.instructions = Array.isArray(parsedResponse.instructions)
-      ? parsedResponse.instructions
-      : [parsedResponse.instructions];
+    // Ensure instructions are in the right format
+    if (!Array.isArray(parsedResponse.instructions)) {
+      parsedResponse.instructions = [
+        { text: String(parsedResponse.instructions) },
+      ];
+    } else {
+      // Convert simple string instructions to proper format if needed
+      parsedResponse.instructions = parsedResponse.instructions.map(
+        (item: any) => {
+          if (typeof item === "string") {
+            return { text: item };
+          }
+          return item;
+        }
+      );
+    }
 
     // Parse numeric values
     if (
@@ -155,7 +197,7 @@ export const extractRecipeFromHTML = async (
     }
 
     // Construct recipe object
-    const recipe: Partial<IRecipeBase> = {
+    const recipe: Partial<Recipe> = {
       title: parsedResponse.title,
       description: parsedResponse.description || "",
       ingredients: parsedResponse.ingredients,
@@ -166,11 +208,11 @@ export const extractRecipeFromHTML = async (
       // fullRecipe temporarily disabled to reduce API costs
       // fullRecipe: parsedResponse.fullRecipe || htmlContent,
       sourceUrl: sourceUrl || "",
-      user: undefined, // Will be set by the controller
-      createdAt: new Date(),
+      user: { _id: "", username: "" }, // Will be set properly by the controller
+      createdAt: new Date().toISOString(),
     };
 
-    return recipe as IRecipeBase;
+    return recipe as Recipe;
   } catch (error) {
     console.error("Error extracting recipe with OpenAI:", error);
     return null;
