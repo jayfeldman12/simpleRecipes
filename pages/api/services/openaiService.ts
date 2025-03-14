@@ -55,7 +55,7 @@ export const extractRecipeFromHTML = async (
       - description: string (required) - A brief description of the recipe
       - ingredients: array (required) - Array of ingredient objects, each with:
         - text: string (required) - The ingredient text with amount and unit
-        - optional: boolean (optional) - Whether the ingredient is optional
+        - optional: boolean (optional) - Whether the ingredient is optional. Only mark this if the recipe explicitly says it's optional.
         Notes: Don't add substitutes. Use imperial units instead of metric when both are given. If there is extra information, like the butter needs to be softened, that should be included in as few words as possible, no need to keep the exact original wording as long as the meaning is the same. Format should be '[amount] [ingredient] (extra info, if needed)'. If the recipe groups ingredients into sections (like "For the cake", "For the frosting"), organize them accordingly.
       - instructions: array (required) - Array of instruction objects, each with:
         - text: string (required) - A separate instruction step
