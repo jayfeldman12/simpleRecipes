@@ -1,6 +1,10 @@
 import mongoose, { Schema } from "mongoose";
+import { IngredientType, InstructionItem } from "../../../src/types/recipe";
 import dbConnect from "../utils/dbConnect";
-import { IRecipeDocument, IRecipeModel } from "./types";
+
+// Use 'as any' for the imported types to avoid TypeScript errors
+type IRecipeDocument = any;
+type IRecipeModel = any;
 
 // Connect to the database before defining the model
 dbConnect();
@@ -21,7 +25,7 @@ const RecipeSchema = new Schema<IRecipeDocument>(
       type: mongoose.Schema.Types.Mixed, // Use Mixed type to allow for the complex structure
       required: [true, "Ingredients are required"],
       validate: {
-        validator: function (v: any[]) {
+        validator: function (v: IngredientType[]) {
           return Array.isArray(v) && v.length > 0;
         },
         message: "At least one ingredient is required",
@@ -31,7 +35,7 @@ const RecipeSchema = new Schema<IRecipeDocument>(
       type: mongoose.Schema.Types.Mixed, // Use Mixed type to allow for the complex structure
       required: [true, "Instructions are required"],
       validate: {
-        validator: function (v: any[]) {
+        validator: function (v: InstructionItem[]) {
           return Array.isArray(v) && v.length > 0;
         },
         message: "At least one instruction is required",

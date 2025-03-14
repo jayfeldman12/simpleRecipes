@@ -9,6 +9,7 @@ import {
   IngredientSection,
   IngredientType,
   InstructionItem,
+  Recipe,
 } from "../../src/types/recipe";
 
 const CreateRecipePage = () => {
@@ -152,20 +153,16 @@ const CreateRecipePage = () => {
     setInstructions(newInstructions);
   };
 
-  const handleImportRecipe = (recipeData: any) => {
+  const handleImportRecipe = (recipeData: Partial<Recipe>) => {
     // Update page title to indicate we're editing an imported recipe
     document.title = `Edit Imported Recipe - ${recipeData.title || "Recipe"}`;
 
     // Update form with imported recipe data
     setTitle(recipeData.title || "");
     setDescription(recipeData.description || "");
-    setCookTime(
-      recipeData.cookTimeMinutes?.toString() ||
-        recipeData.cookingTime?.toString() ||
-        ""
-    );
+    setCookTime(recipeData.cookingTime?.toString() || "");
     setServings(recipeData.servings?.toString() || "");
-    setPrepTime(recipeData.prepTimeMinutes?.toString() || "");
+    setPrepTime(""); // Recipe interface doesn't have prepTime, set to empty
     setImageUrl(recipeData.imageUrl || "");
 
     // Parse ingredients
@@ -173,7 +170,7 @@ const CreateRecipePage = () => {
       // The imported data is already in the correct format
       // We need to convert it if needed
       const parsedIngredients = recipeData.ingredients.map(
-        (ingredient: any) => {
+        (ingredient: string | IngredientType) => {
           if (typeof ingredient === "string") {
             // Legacy string format - convert to object
             const match = ingredient.match(/^([\d\s\/\.\,]+)(.+)$/);
@@ -181,28 +178,28 @@ const CreateRecipePage = () => {
               return {
                 text: ingredient,
                 optional: false,
-              };
+              } as IngredientItem;
             }
-            return { text: ingredient, optional: false };
+            return { text: ingredient, optional: false } as IngredientItem;
           }
           return ingredient; // Already in the correct format
         }
       );
-      setIngredients(parsedIngredients);
+      setIngredients(parsedIngredients as IngredientType[]);
     }
 
     // Set instructions
     if (recipeData.instructions && recipeData.instructions.length > 0) {
       // Handle instructions that might be in string format
       const parsedInstructions = recipeData.instructions.map(
-        (instruction: any) => {
+        (instruction: string | InstructionItem) => {
           if (typeof instruction === "string") {
-            return { text: instruction };
+            return { text: instruction } as InstructionItem;
           }
           return instruction; // Already in the correct format
         }
       );
-      setInstructions(parsedInstructions);
+      setInstructions(parsedInstructions as InstructionItem[]);
     }
   };
 
@@ -253,21 +250,23 @@ const CreateRecipePage = () => {
           "Could not import recipe. Please check the URL and try again."
         );
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error importing recipe:", err);
-      if (err.status === 400) {
+      const error = err as { status?: number; message?: string };
+      if (error.status === 400) {
         setError(
           "Failed to extract recipe data from the provided URL. Please make sure it's a valid recipe page."
         );
-      } else if (err.status === 401) {
+      } else if (error.status === 401) {
         setError("You need to be logged in to import recipes.");
-      } else if (err.status === 500) {
+      } else if (error.status === 500) {
         setError(
           "Server error. Please try again later or try a different URL."
         );
       } else {
         setError(
-          err.message || "Failed to import recipe. Please try a different URL."
+          error.message ||
+            "Failed to import recipe. Please try a different URL."
         );
       }
     } finally {

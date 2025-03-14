@@ -46,10 +46,12 @@ async function getRecipes(
 
       if (user) {
         // Convert user favorites to string IDs for comparison
-        const favoritesSet = new Set(user.favorites.map((id) => id.toString()));
+        const favoritesSet = new Set(
+          user.favorites.map((id: any) => id.toString())
+        );
 
         // Create a new array with the isFavorite flag added
-        const recipeObjects = recipes.map((recipe) => {
+        const recipeObjects = recipes.map((recipe: any) => {
           // Convert Mongoose document to plain object
           const recipeObj = recipe.toJSON();
           const recipeId = recipe._id ? recipe._id.toString() : "";
@@ -67,7 +69,7 @@ async function getRecipes(
         // Log the entire response for debugging
         console.log(
           "Response with favorites:",
-          recipeObjects.map((r) => ({
+          recipeObjects.map((r: any) => ({
             id: r._id,
             title: r.title,
             isFavorite: r.isFavorite,

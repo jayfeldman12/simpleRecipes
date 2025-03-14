@@ -5,12 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { recipeAPI } from "../../../src/services/api";
+import { Recipe as ImportedRecipe } from "../../../src/types/recipe";
 
-interface Recipe {
-  _id: string;
-  title: string;
-  fullRecipe?: string;
-  sourceUrl?: string;
+// Create a local Recipe type that matches the imported one but with required _id
+interface Recipe extends Omit<ImportedRecipe, "_id"> {
+  _id: string; // Make _id required
 }
 
 export default function FullRecipe() {
@@ -22,28 +21,31 @@ export default function FullRecipe() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchRecipe = async () => {
-      if (!id) return;
-
-      try {
-        setLoading(true);
-        const data = await recipeAPI.getRecipeById(id as string);
-        setRecipe(data);
-
-        // If no full recipe text is available, show an error
-        if (!data.fullRecipe) {
-          setError("No full recipe text available for this recipe.");
-        }
-      } catch (err) {
-        console.error("Failed to fetch recipe:", err);
-        setError("Failed to load recipe details. Please try again later.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchRecipe();
+    if (id) {
+      fetchRecipe();
+    }
   }, [id]);
+
+  const fetchRecipe = async () => {
+    if (!id) return;
+
+    try {
+      setLoading(true);
+      const data = await recipeAPI.getRecipeById(id as string);
+      // Cast the data to match our local Recipe type with required _id
+      setRecipe(data as Recipe);
+
+      // If no full recipe text is available, show an error
+      if (!data.fullRecipe) {
+        setError("No full recipe text available for this recipe.");
+      }
+    } catch (err) {
+      console.error("Failed to fetch recipe:", err);
+      setError("Failed to load recipe details. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Function to convert and sanitize HTML content
   const formatFullRecipe = (content: string) => {

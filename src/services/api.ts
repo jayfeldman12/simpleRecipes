@@ -1,3 +1,5 @@
+import { Recipe } from "../types/recipe";
+
 const API_URL = "/api";
 
 // Types
@@ -26,19 +28,20 @@ const handleResponse = async <T>(response: Response): Promise<T> => {
   const data = await response.json();
 
   if (!response.ok) {
-    const error: ApiError = new Error(data.message || "API error");
+    const error = new Error(data.message || "An error occurred") as Error & {
+      status?: number;
+    };
     error.status = response.status;
     throw error;
   }
 
-  return data as T;
+  return data;
 };
 
 // Get the authentication token from localStorage
 const getAuthToken = (): string | null => {
   if (typeof window !== "undefined") {
-    const user = localStorage.getItem("user");
-    return user ? JSON.parse(user).token : null;
+    return localStorage.getItem("token");
   }
   return null;
 };
@@ -92,7 +95,15 @@ export const authAPI = {
 // Recipe API calls
 export const recipeAPI = {
   // Get all recipes
-  getRecipes: async (page = 1, tag?: string, showAll = true): Promise<any> => {
+  getRecipes: async (
+    page = 1,
+    tag?: string,
+    showAll = true
+  ): Promise<{
+    recipes: Recipe[];
+    totalPages: number;
+    currentPage: number;
+  }> => {
     let url = `${API_URL}/recipes?page=${page}&all=${showAll}`;
 
     if (tag) {
@@ -112,13 +123,13 @@ export const recipeAPI = {
   },
 
   // Get a single recipe by ID
-  getRecipeById: async (id: string): Promise<any> => {
+  getRecipeById: async (id: string): Promise<Recipe> => {
     const response = await fetch(`${API_URL}/recipes/${id}`);
-    return handleResponse(response);
+    return handleResponse<Recipe>(response);
   },
 
   // Create a new recipe (requires authentication)
-  createRecipe: async (recipeData: any): Promise<any> => {
+  createRecipe: async (recipeData: Partial<Recipe>): Promise<Recipe> => {
     const token = getAuthToken();
 
     if (!token) {
@@ -134,11 +145,14 @@ export const recipeAPI = {
       body: JSON.stringify(recipeData),
     });
 
-    return handleResponse(response);
+    return handleResponse<Recipe>(response);
   },
 
   // Update a recipe (requires authentication)
-  updateRecipe: async (id: string, recipeData: any): Promise<any> => {
+  updateRecipe: async (
+    id: string,
+    recipeData: Partial<Recipe>
+  ): Promise<Recipe> => {
     const token = getAuthToken();
 
     if (!token) {
@@ -154,11 +168,13 @@ export const recipeAPI = {
       body: JSON.stringify(recipeData),
     });
 
-    return handleResponse(response);
+    return handleResponse<Recipe>(response);
   },
 
   // Delete a recipe (requires authentication)
-  deleteRecipe: async (id: string): Promise<any> => {
+  deleteRecipe: async (
+    id: string
+  ): Promise<{ success: boolean; message: string }> => {
     const token = getAuthToken();
 
     if (!token) {
@@ -176,7 +192,7 @@ export const recipeAPI = {
   },
 
   // Get user's recipes (requires authentication)
-  getUserRecipes: async (): Promise<any> => {
+  getUserRecipes: async (): Promise<Recipe[]> => {
     const token = getAuthToken();
 
     if (!token) {
@@ -193,7 +209,7 @@ export const recipeAPI = {
   },
 
   // Get user's favorite recipes (requires authentication)
-  getFavoriteRecipes: async (): Promise<any> => {
+  getFavoriteRecipes: async (): Promise<Recipe[]> => {
     const token = getAuthToken();
 
     if (!token) {
@@ -210,7 +226,9 @@ export const recipeAPI = {
   },
 
   // Add a recipe to favorites (requires authentication)
-  addToFavorites: async (recipeId: string): Promise<any> => {
+  addToFavorites: async (
+    recipeId: string
+  ): Promise<{ success: boolean; message: string }> => {
     const token = getAuthToken();
 
     if (!token) {
@@ -228,7 +246,9 @@ export const recipeAPI = {
   },
 
   // Remove a recipe from favorites (requires authentication)
-  removeFromFavorites: async (recipeId: string): Promise<any> => {
+  removeFromFavorites: async (
+    recipeId: string
+  ): Promise<{ success: boolean; message: string }> => {
     const token = getAuthToken();
 
     if (!token) {
@@ -246,7 +266,13 @@ export const recipeAPI = {
   },
 
   // Import a recipe from a URL (requires authentication)
-  importRecipeFromUrl: async (url: string): Promise<any> => {
+  importRecipeFromUrl: async (
+    url: string
+  ): Promise<{
+    recipe: Partial<Recipe>;
+    recipeId?: string;
+    message?: string;
+  }> => {
     const token = getAuthToken();
 
     if (!token) {

@@ -5,19 +5,12 @@ import { useEffect, useMemo, useState } from "react";
 import SearchBar from "../../src/components/SearchBar";
 import { useAuth } from "../../src/context/AuthContext";
 import { recipeAPI } from "../../src/services/api";
+import { Recipe as ImportedRecipe } from "../../src/types/recipe";
 import RecipeCard, { favoritesUpdated } from "../components/RecipeCard";
 
-// Define a type for Recipe
-interface Recipe {
+// Local recipe type with required _id
+interface Recipe extends Omit<ImportedRecipe, "_id"> {
   _id: string;
-  title: string;
-  description: string;
-  cookingTime?: number;
-  imageUrl: string;
-  user: {
-    _id: string;
-    username: string;
-  };
   isFavorite?: boolean;
 }
 
@@ -48,10 +41,10 @@ export default function RecipeList() {
       }
 
       // Explicitly convert isFavorite to boolean
-      const processed = recipesArray.map((recipe: Recipe) => ({
+      const processed = recipesArray.map((recipe) => ({
         ...recipe,
         isFavorite: Boolean(recipe.isFavorite),
-      }));
+      })) as Recipe[];
 
       // Sort recipes - favorites first
       const sortedRecipes = processed.sort((a: Recipe, b: Recipe) => {

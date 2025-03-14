@@ -114,9 +114,9 @@ export default function RecipeDetail() {
 
       // Now make the actual API call
       if (newFavoriteStatus) {
-        await recipeAPI.addToFavorites(recipe._id);
+        await recipeAPI.addToFavorites(recipe._id as string);
       } else {
-        await recipeAPI.removeFromFavorites(recipe._id);
+        await recipeAPI.removeFromFavorites(recipe._id as string);
       }
     } catch (err) {
       // If API call fails, revert the optimistic update
@@ -163,7 +163,7 @@ export default function RecipeDetail() {
 
     if (window.confirm("Are you sure you want to delete this recipe?")) {
       try {
-        await recipeAPI.deleteRecipe(recipe._id);
+        await recipeAPI.deleteRecipe(recipe._id as string);
         router.push("/recipes/my-recipes");
       } catch (err) {
         console.error("Failed to delete recipe:", err);
@@ -249,7 +249,7 @@ export default function RecipeDetail() {
                 <h1 className="text-3xl font-bold text-gray-800">
                   {recipe.title}
                 </h1>
-                {user && user._id === recipe.user._id && (
+                {user && recipe.user && user._id === recipe.user._id && (
                   <div className="flex gap-2">
                     <Link
                       href={`/recipes/edit/${recipe._id}`}
@@ -495,7 +495,7 @@ export default function RecipeDetail() {
               </a>
             )}
           </div>
-          {user && user._id === recipe.user._id && (
+          {user && recipe.user && user._id === recipe.user._id && (
             <div className="grid grid-cols-2 gap-2 mt-2">
               <Link
                 href={`/recipes/edit/${recipe._id}`}

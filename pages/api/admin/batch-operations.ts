@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { NextApiRequest, NextApiResponse } from "next";
+import { IngredientType, InstructionItem } from "../../../src/types/recipe";
 import { IRecipeDocument } from "../models/types";
 import { fetchHtmlFromUrl } from "../services/htmlFetchService";
 import { extractRecipeFromHTML } from "../services/openaiService";
@@ -43,7 +44,10 @@ function validateApiKey(providedKey: string): boolean {
 const operations: Record<string, RecipeTransformFn> = {
   "add-test-field": (recipe: IRecipeDocument) => {
     // Use type assertion to allow adding dynamic property
-    (recipe as any).testField = "This is a test field";
+    interface RecipeWithTestField extends IRecipeDocument {
+      testField?: string;
+    }
+    (recipe as RecipeWithTestField).testField = "This is a test field";
     return recipe;
   },
 
@@ -52,7 +56,7 @@ const operations: Record<string, RecipeTransformFn> = {
     console.log("checking recipe", recipe.title, index);
 
     // Helper function to check if a value is a valid date
-    const isValidDate = (value: any): boolean => {
+    const isValidDate = (value: unknown): boolean => {
       if (!value) return false;
 
       // Handle string dates
@@ -74,7 +78,10 @@ const operations: Record<string, RecipeTransformFn> = {
     };
 
     // Helper function to ensure value is a Date object
-    const ensureDate = (value: any): Date => {
+    const ensureDate = (value: string | Date | undefined): Date => {
+      if (!value) {
+        return new Date(); // Default to current date if undefined
+      }
       if (typeof value === "string") {
         return new Date(value);
       }
@@ -152,11 +159,15 @@ const operations: Record<string, RecipeTransformFn> = {
   "structure-ingredients-instructions": async (recipe: IRecipeDocument) => {
     // Skip if the recipe already has structured ingredients and instructions
     const hasStructuredIngredients = recipe.ingredients.some(
-      (ingredient: any) =>
-        typeof ingredient === "object" && "text" in ingredient
+      (
+        ingredient:
+          | string
+          | IngredientType
+          | { sectionTitle: string; ingredients: IngredientType[] }
+      ) => typeof ingredient !== "string"
     );
     const hasStructuredInstructions = recipe.instructions.some(
-      (instruction: any) =>
+      (instruction: string | { text: string }) =>
         typeof instruction === "object" && "text" in instruction
     );
 
@@ -210,31 +221,25 @@ const operations: Record<string, RecipeTransformFn> = {
         `Using fallback method to structure data for ${recipe.title}`
       );
 
-      // Convert string ingredients to structured format
-      if (!hasStructuredIngredients) {
-        recipe.ingredients = recipe.ingredients.map((ingredient: any) => {
+      // Convert string ingredients to objects
+      recipe.ingredients = recipe.ingredients.map(
+        (ingredient: string | IngredientType) => {
           if (typeof ingredient === "string") {
-            return { text: ingredient };
+            return { text: ingredient.trim(), optional: false };
           }
           return ingredient;
-        });
-        console.log(
-          `Converted ${recipe.ingredients.length} ingredients to structured format`
-        );
-      }
+        }
+      );
 
-      // Convert string instructions to structured format
-      if (!hasStructuredInstructions) {
-        recipe.instructions = recipe.instructions.map((instruction: any) => {
+      // Convert string instructions to objects
+      recipe.instructions = recipe.instructions.map(
+        (instruction: string | InstructionItem) => {
           if (typeof instruction === "string") {
-            return { text: instruction };
+            return { text: instruction.trim() };
           }
           return instruction;
-        });
-        console.log(
-          `Converted ${recipe.instructions.length} instructions to structured format`
-        );
-      }
+        }
+      );
 
       return recipe;
     } catch (error) {
@@ -245,14 +250,20 @@ const operations: Record<string, RecipeTransformFn> = {
 
       // If any error occurs, still ensure we return a structured format
       if (!hasStructuredIngredients) {
-        recipe.ingredients = recipe.ingredients.map((ingredient: any) =>
-          typeof ingredient === "string" ? { text: ingredient } : ingredient
+        recipe.ingredients = recipe.ingredients.map(
+          (ingredient: string | IngredientType) =>
+            typeof ingredient === "string"
+              ? { text: ingredient, optional: false }
+              : ingredient
         );
       }
 
       if (!hasStructuredInstructions) {
-        recipe.instructions = recipe.instructions.map((instruction: any) =>
-          typeof instruction === "string" ? { text: instruction } : instruction
+        recipe.instructions = recipe.instructions.map(
+          (instruction: string | InstructionItem) =>
+            typeof instruction === "string"
+              ? { text: instruction }
+              : instruction
         );
       }
 
@@ -284,10 +295,8 @@ export default async function handler(
     return res.status(405).json({ message: "Method not allowed" });
   }
 
-  // Get API key from headers
-  const apiKey = req.headers["x-api-key"] as string;
-
   // Validate API key
+  const apiKey = req.headers["x-api-key"] as string;
   if (!validateApiKey(apiKey)) {
     // Use a generic error message to not disclose if API key is wrong or missing
     return res.status(401).json({ message: "Not authorized" });

@@ -95,7 +95,7 @@ function optimizeHtmlForRecipeExtraction(htmlContent: string): string {
     const articleElements = $("article");
     if (articleElements.length > 0) {
       // Find the most substantial article
-      let bestArticle: any = articleElements.first();
+      let bestArticle = articleElements.first() as any;
       let bestLength = bestArticle.text().trim().length;
 
       // If multiple articles exist, find the one with the most content
@@ -104,7 +104,7 @@ function optimizeHtmlForRecipeExtraction(htmlContent: string): string {
           const articleLength = $(this).text().trim().length;
           if (articleLength > bestLength) {
             bestLength = articleLength;
-            bestArticle = $(this);
+            bestArticle = $(this) as any;
           }
         });
       }
@@ -324,7 +324,7 @@ function findContentByTextDensity($: cheerio.CheerioAPI): string | null {
 
   $("div, section, article").each(function () {
     const element = $(this);
-    const html = element.html() || "";
+    const html = (element as any).html() || "";
     const text = element.text().trim();
     const textLength = text.length;
 
@@ -351,7 +351,7 @@ function findContentByTextDensity($: cheerio.CheerioAPI): string | null {
   });
 
   if (bestElement) {
-    const html = bestElement.html();
+    const html = (bestElement as any).html();
     return html || null;
   }
 
@@ -382,12 +382,12 @@ export const extractMainContent = (html: string): string => {
     for (const selector of contentSelectors) {
       const element = $(selector);
       if (element.length && element.text().trim().length > 200) {
-        return element.html() || "";
+        return (element as any).html() || "";
       }
     }
 
     // Fallback to body if no content container found
-    return $("body").html() || html;
+    return ($("body") as any).html() || html;
   } catch (error) {
     console.warn("Error extracting main content:", error);
     return html;

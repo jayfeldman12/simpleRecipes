@@ -5,20 +5,12 @@ import ProtectedRoute from "../../src/components/ProtectedRoute";
 import SearchBar from "../../src/components/SearchBar";
 import { useAuth } from "../../src/context/AuthContext";
 import { recipeAPI } from "../../src/services/api";
+import { Recipe as ImportedRecipe } from "../../src/types/recipe";
 import RecipeCard, { favoritesUpdated } from "../components/RecipeCard";
 
-interface Recipe {
+// Local recipe type with required _id
+interface Recipe extends Omit<ImportedRecipe, "_id"> {
   _id: string;
-  title: string;
-  imageUrl: string;
-  description: string;
-  cookingTime?: number;
-  user: {
-    _id: string;
-    username: string;
-  };
-  createdAt: string;
-  isFavorite?: boolean;
 }
 
 const MyRecipesPage = () => {
@@ -37,9 +29,11 @@ const MyRecipesPage = () => {
         // Handle array or object response
         let recipesData: Recipe[] = [];
         if (Array.isArray(data)) {
-          recipesData = data;
-        } else if (data && Array.isArray(data.recipes)) {
-          recipesData = data.recipes;
+          recipesData = data as Recipe[];
+        } else {
+          // Data is an object, but we expect an array directly
+          // This is a fallback in case the API response format changes
+          recipesData = [];
         }
 
         // Ensure all recipes have isFavorite property

@@ -31,7 +31,9 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
     }
 
     // Convert user favorites to a Set for faster lookups
-    const favoritesSet = new Set(user.favorites.map((id) => id.toString()));
+    const favoritesSet = new Set(
+      user.favorites.map((id: any) => id.toString())
+    );
 
     // Get user's recipes
     const recipes = await Recipe.find({ user: req.user._id }).sort({
@@ -39,7 +41,7 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
     });
 
     // Add isFavorite flag to each recipe
-    const recipesWithFavoriteFlag = recipes.map((recipe) => {
+    const recipesWithFavoriteFlag = recipes.map((recipe: any) => {
       const recipeObj = recipe.toJSON();
       const recipeId = recipe._id ? recipe._id.toString() : "";
 

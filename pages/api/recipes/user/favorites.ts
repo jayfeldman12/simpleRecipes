@@ -38,7 +38,7 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
       .populate("user", "username");
 
     // Add isFavorite flag to each recipe
-    const recipesWithFavoriteFlag = favoriteRecipes.map((recipe) => {
+    const recipesWithFavoriteFlag = favoriteRecipes.map((recipe: any) => {
       const recipeObj = recipe.toJSON();
       return {
         ...recipeObj,

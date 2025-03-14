@@ -5,7 +5,17 @@
  */
 
 import OpenAI from "openai";
-import { Recipe } from "../../../src/types/recipe";
+import {
+  IngredientItem,
+  IngredientType,
+  InstructionItem,
+  Recipe,
+} from "../../../src/types/recipe";
+
+// Define the OpenAI response type
+interface OpenAIRecipeResponse extends Partial<Recipe> {
+  error?: string;
+}
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -117,7 +127,7 @@ export const extractRecipeFromHTML = async (
     );
 
     // Parse JSON response
-    let parsedResponse: any;
+    let parsedResponse: OpenAIRecipeResponse;
     try {
       parsedResponse = JSON.parse(responseContent);
     } catch (err) {
@@ -148,16 +158,22 @@ export const extractRecipeFromHTML = async (
     // Ensure arrays are properly formatted and structured correctly
     if (!Array.isArray(parsedResponse.ingredients)) {
       parsedResponse.ingredients = [
-        { text: String(parsedResponse.ingredients) },
+        { text: String(parsedResponse.ingredients || "") } as IngredientItem,
       ];
     } else {
       // Convert simple string ingredients to proper format if needed
       parsedResponse.ingredients = parsedResponse.ingredients.map(
-        (item: any) => {
+        (item: string | IngredientType) => {
           if (typeof item === "string") {
-            return { text: item };
+            return { text: item } as IngredientItem;
           }
-          return item;
+          // Make sure we return IngredientItem only
+          if ("sectionTitle" in item) {
+            // This is an IngredientSection, which we shouldn't have in OpenAI response
+            // Convert it to a simple ingredient
+            return { text: item.sectionTitle } as IngredientItem;
+          }
+          return item as IngredientItem;
         }
       );
     }
@@ -165,14 +181,14 @@ export const extractRecipeFromHTML = async (
     // Ensure instructions are in the right format
     if (!Array.isArray(parsedResponse.instructions)) {
       parsedResponse.instructions = [
-        { text: String(parsedResponse.instructions) },
+        { text: String(parsedResponse.instructions || "") } as InstructionItem,
       ];
     } else {
       // Convert simple string instructions to proper format if needed
       parsedResponse.instructions = parsedResponse.instructions.map(
-        (item: any) => {
+        (item: string | InstructionItem) => {
           if (typeof item === "string") {
-            return { text: item };
+            return { text: item } as InstructionItem;
           }
           return item;
         }
