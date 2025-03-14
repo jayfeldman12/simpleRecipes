@@ -1,6 +1,8 @@
 import crypto from "crypto";
 import { NextApiRequest, NextApiResponse } from "next";
 import { IRecipeDocument } from "../models/types";
+import { fetchHtmlFromUrl } from "../services/htmlFetchService";
+import { extractRecipeFromHTML } from "../services/openaiService";
 import { processImageUrl } from "../utils/awsS3";
 import {
   BatchOperationResult,
@@ -145,6 +147,117 @@ const operations: Record<string, RecipeTransformFn> = {
     }
 
     return recipe;
+  },
+
+  "structure-ingredients-instructions": async (recipe: IRecipeDocument) => {
+    // Skip if the recipe already has structured ingredients and instructions
+    const hasStructuredIngredients = recipe.ingredients.some(
+      (ingredient: any) =>
+        typeof ingredient === "object" && "text" in ingredient
+    );
+    const hasStructuredInstructions = recipe.instructions.some(
+      (instruction: any) =>
+        typeof instruction === "object" && "text" in instruction
+    );
+
+    // If already structured, skip processing
+    if (hasStructuredIngredients && hasStructuredInstructions) {
+      console.log(
+        `Recipe ${recipe.title} already has structured data, skipping`
+      );
+      return recipe;
+    }
+
+    console.log(`Processing recipe ${recipe.title} for structured data`);
+
+    try {
+      // If we have a source URL, fetch the HTML and extract structured data
+      if (recipe.sourceUrl) {
+        console.log(`Fetching content from source: ${recipe.sourceUrl}`);
+        const htmlContent = await fetchHtmlFromUrl(recipe.sourceUrl);
+
+        if (htmlContent) {
+          console.log(`Successfully fetched HTML, extracting structured data`);
+          const structuredData = await extractRecipeFromHTML(
+            htmlContent,
+            recipe.sourceUrl
+          );
+
+          if (structuredData) {
+            console.log(
+              `Successfully extracted structured data for ${recipe.title}`
+            );
+
+            // Update ingredients if they're not already structured
+            if (!hasStructuredIngredients && structuredData.ingredients) {
+              recipe.ingredients = structuredData.ingredients;
+              console.log(`Updated ingredients to structured format`);
+            }
+
+            // Update instructions if they're not already structured
+            if (!hasStructuredInstructions && structuredData.instructions) {
+              recipe.instructions = structuredData.instructions;
+              console.log(`Updated instructions to structured format`);
+            }
+
+            return recipe;
+          }
+        }
+      }
+
+      // Fallback if source URL doesn't work: convert existing ingredients and instructions
+      console.log(
+        `Using fallback method to structure data for ${recipe.title}`
+      );
+
+      // Convert string ingredients to structured format
+      if (!hasStructuredIngredients) {
+        recipe.ingredients = recipe.ingredients.map((ingredient: any) => {
+          if (typeof ingredient === "string") {
+            return { text: ingredient };
+          }
+          return ingredient;
+        });
+        console.log(
+          `Converted ${recipe.ingredients.length} ingredients to structured format`
+        );
+      }
+
+      // Convert string instructions to structured format
+      if (!hasStructuredInstructions) {
+        recipe.instructions = recipe.instructions.map((instruction: any) => {
+          if (typeof instruction === "string") {
+            return { text: instruction };
+          }
+          return instruction;
+        });
+        console.log(
+          `Converted ${recipe.instructions.length} instructions to structured format`
+        );
+      }
+
+      return recipe;
+    } catch (error) {
+      console.error(
+        `Error processing structured data for ${recipe.title}:`,
+        error
+      );
+
+      // If any error occurs, still ensure we return a structured format
+      if (!hasStructuredIngredients) {
+        recipe.ingredients = recipe.ingredients.map((ingredient: any) =>
+          typeof ingredient === "string" ? { text: ingredient } : ingredient
+        );
+      }
+
+      if (!hasStructuredInstructions) {
+        recipe.instructions = recipe.instructions.map((instruction: any) =>
+          typeof instruction === "string" ? { text: instruction } : instruction
+        );
+      }
+
+      return recipe;
+    }
   },
 };
 

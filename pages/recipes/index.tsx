@@ -1,7 +1,8 @@
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import SearchBar from "../../src/components/SearchBar";
 import { useAuth } from "../../src/context/AuthContext";
 import { recipeAPI } from "../../src/services/api";
 import RecipeCard, { favoritesUpdated } from "../components/RecipeCard";
@@ -25,6 +26,7 @@ export default function RecipeList() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const { user } = useAuth();
 
   const fetchRecipes = async () => {
@@ -108,64 +110,116 @@ export default function RecipeList() {
     };
   }, []);
 
+  // Filter recipes based on search query
+  const filteredRecipes = useMemo(() => {
+    if (!searchQuery) return recipes;
+
+    const query = searchQuery.toLowerCase();
+    return recipes.filter(
+      (recipe) =>
+        recipe.title.toLowerCase().includes(query) ||
+        recipe.description.toLowerCase().includes(query)
+    );
+  }, [recipes, searchQuery]);
+
+  if (loading) {
+    return (
+      <div className="container mx-auto mt-8 px-4">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <>
+    <div className="bg-gray-50 min-h-screen">
       <Head>
         <title>All Recipes | Simple Recipes</title>
-        <meta name="description" content="Browse all recipes" />
+        <meta
+          name="description"
+          content="Browse our collection of delicious recipes"
+        />
       </Head>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="sm:flex sm:items-center sm:justify-between mb-6">
-          <div className="text-center sm:text-left">
-            <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-              All Recipes
-            </h1>
-            <p className="mt-2 text-xl text-gray-500">
-              Browse through recipes shared by our community
+      <main className="container mx-auto px-4 py-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800">All Recipes</h1>
+            <p className="text-gray-600 mt-1">
+              Browse and discover delicious recipes
             </p>
           </div>
-          {user && (
-            <div className="mt-4 sm:mt-0">
+
+          <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+            <SearchBar
+              onSearch={setSearchQuery}
+              className="w-full sm:w-64 lg:w-80"
+            />
+
+            {user && (
               <Link
                 href="/recipes/create"
-                className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg transition-colors whitespace-nowrap inline-flex"
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors flex items-center justify-center"
               >
-                Create New Recipe
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 mr-1"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                Create Recipe
               </Link>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
-        {loading ? (
-          <div className="flex justify-center my-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+            {error}
           </div>
-        ) : error ? (
-          <div className="text-center text-red-500 my-12">{error}</div>
-        ) : recipes && recipes.length === 0 ? (
-          <div className="text-center my-12">
-            <p className="text-gray-500 text-lg">No recipes found.</p>
-            {user && (
-              <p className="mt-4">
-                <a
-                  href="/recipes/create"
-                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  Create a recipe
-                </a>
-              </p>
+        )}
+
+        {filteredRecipes.length === 0 ? (
+          <div className="bg-white p-8 rounded-lg shadow-md text-center">
+            {searchQuery ? (
+              <>
+                <h2 className="text-xl font-semibold mb-2">No matches found</h2>
+                <p className="text-gray-600">
+                  No recipes match your search "{searchQuery}". Try a different
+                  search term.
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="text-xl font-semibold mb-2">No recipes found</h2>
+                <p className="text-gray-600">
+                  {user
+                    ? "Create your first recipe by clicking the 'Create Recipe' button above!"
+                    : "Sign in to create your own recipes!"}
+                </p>
+              </>
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {recipes &&
-              recipes.map((recipe) => (
-                <RecipeCard key={recipe._id} recipe={recipe} />
-              ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredRecipes.map((recipe) => (
+              <RecipeCard
+                key={recipe._id}
+                recipe={recipe}
+                onDelete={undefined}
+                isEditable={false}
+              />
+            ))}
           </div>
         )}
-      </div>
-    </>
+      </main>
+    </div>
   );
 }
