@@ -41,7 +41,17 @@ const handleResponse = async <T>(response: Response): Promise<T> => {
 // Get the authentication token from localStorage
 const getAuthToken = (): string | null => {
   if (typeof window !== "undefined") {
-    return localStorage.getItem("token");
+    // Get user from localStorage
+    const userJson = localStorage.getItem("user");
+    if (userJson) {
+      try {
+        const user = JSON.parse(userJson);
+        return user.token; // Extract token from user object
+      } catch (error) {
+        console.error("Error parsing user from localStorage:", error);
+        return null;
+      }
+    }
   }
   return null;
 };
