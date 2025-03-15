@@ -112,6 +112,15 @@ export default function EditRecipe() {
     setFormData({ ...formData, ingredients: newIngredients });
   };
 
+  const toggleIngredientOptional = (index: number) => {
+    const newIngredients = [...formData.ingredients];
+    if ("text" in newIngredients[index]) {
+      const ingredient = newIngredients[index] as IngredientItem;
+      ingredient.optional = !ingredient.optional;
+      setFormData({ ...formData, ingredients: newIngredients });
+    }
+  };
+
   const handleSubIngredientChange = (
     sectionIndex: number,
     itemIndex: number,
@@ -123,6 +132,22 @@ export default function EditRecipe() {
     if (section && "ingredients" in section && section.ingredients[itemIndex]) {
       if ("text" in section.ingredients[itemIndex]) {
         (section.ingredients[itemIndex] as IngredientItem).text = value;
+        setFormData({ ...formData, ingredients: newIngredients });
+      }
+    }
+  };
+
+  const toggleSubIngredientOptional = (
+    sectionIndex: number,
+    itemIndex: number
+  ) => {
+    const newIngredients = [...formData.ingredients];
+    const section = newIngredients[sectionIndex] as IngredientSection;
+
+    if (section && "ingredients" in section && section.ingredients[itemIndex]) {
+      if ("text" in section.ingredients[itemIndex]) {
+        const subIngredient = section.ingredients[itemIndex] as IngredientItem;
+        subIngredient.optional = !subIngredient.optional;
         setFormData({ ...formData, ingredients: newIngredients });
       }
     }
@@ -326,6 +351,25 @@ export default function EditRecipe() {
                       }
                       required
                     />
+                    {"text" in ingredient && (
+                      <div className="flex items-center">
+                        <label className="inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={
+                              "optional" in ingredient
+                                ? !!ingredient.optional
+                                : false
+                            }
+                            onChange={() => toggleIngredientOptional(index)}
+                            className="form-checkbox h-4 w-4 text-blue-600 transition duration-150 ease-in-out"
+                          />
+                          <span className="ml-2 text-xs text-gray-600">
+                            Optional
+                          </span>
+                        </label>
+                      </div>
+                    )}
                     <button
                       type="button"
                       onClick={() => removeIngredient(index)}
@@ -369,6 +413,27 @@ export default function EditRecipe() {
                             className="flex-1 px-3 py-1 text-sm rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder={`Sub-ingredient ${subIndex + 1}`}
                           />
+                          {"text" in subIngredient && (
+                            <div className="flex items-center">
+                              <label className="inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={
+                                    "optional" in subIngredient
+                                      ? !!subIngredient.optional
+                                      : false
+                                  }
+                                  onChange={() =>
+                                    toggleSubIngredientOptional(index, subIndex)
+                                  }
+                                  className="form-checkbox h-3 w-3 text-blue-600 transition duration-150 ease-in-out"
+                                />
+                                <span className="ml-1 text-xs text-gray-600">
+                                  Opt
+                                </span>
+                              </label>
+                            </div>
+                          )}
                           <button
                             type="button"
                             onClick={() => removeSubIngredient(index, subIndex)}
