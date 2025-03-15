@@ -74,6 +74,10 @@ const RecipeSchema = new Schema<IRecipeDocument>(
       type: String,
       required: false,
     },
+    index: {
+      type: Number,
+      default: 0, // Default to 0 for existing recipes
+    },
   },
   {
     timestamps: true,

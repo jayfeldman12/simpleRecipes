@@ -184,3 +184,41 @@ export async function batchUpdateRecipes(
  *   return recipe;
  * });
  */
+
+/**
+ * Backfill recipe indexes for all users
+ * This function assigns an incremental index to each recipe per user
+ * based on the recipe's creation date
+ */
+export async function backfillRecipeIndexes(): Promise<void> {
+  // Connect to database
+  await connectDB();
+
+  console.log("Starting recipe index backfill...");
+
+  try {
+    // Get all recipes grouped by user
+    const users = await Recipe.distinct("user");
+    console.log(`Found ${users.length} users with recipes`);
+
+    for (const userId of users) {
+      // Get all recipes for this user, sorted by creation date
+      const recipes = await Recipe.find({ user: userId })
+        .sort({ createdAt: 1 })
+        .select("_id title index");
+
+      console.log(`Processing ${recipes.length} recipes for user ${userId}`);
+
+      // Update each recipe with an incremental index
+      for (let i = 0; i < recipes.length; i++) {
+        await Recipe.updateOne({ _id: recipes[i]._id }, { $set: { index: i } });
+        console.log(`Updated recipe "${recipes[i].title}" with index ${i}`);
+      }
+    }
+
+    console.log("Recipe index backfill completed successfully");
+  } catch (error) {
+    console.error("Error during backfill:", error);
+    throw error;
+  }
+}

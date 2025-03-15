@@ -52,4 +52,5 @@ export interface Recipe {
   updatedAt?: string;
   isFavorite?: boolean;
   originalImageUrl?: string;
+  index?: number;
 }

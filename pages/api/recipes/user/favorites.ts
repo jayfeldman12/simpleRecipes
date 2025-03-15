@@ -34,7 +34,7 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
     const favoriteRecipes = await Recipe.find({
       _id: { $in: user.favorites },
     })
-      .sort({ createdAt: -1 })
+      .sort({ index: 1 })
       .populate("user", "username");
 
     // Add isFavorite flag to each recipe

@@ -37,7 +37,7 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
 
     // Get user's recipes
     const recipes = await Recipe.find({ user: req.user._id }).sort({
-      createdAt: -1,
+      index: 1,
     });
 
     // Add isFavorite flag to each recipe

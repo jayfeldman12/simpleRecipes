@@ -6,6 +6,7 @@ import { fetchHtmlFromUrl } from "../services/htmlFetchService";
 import { extractRecipeFromHTML } from "../services/openaiService";
 import { processImageUrl } from "../utils/awsS3";
 import {
+  backfillRecipeIndexes,
   BatchOperationResult,
   batchUpdateRecipes,
   RecipeTransformFn,
@@ -41,7 +42,7 @@ function validateApiKey(providedKey: string): boolean {
 }
 
 // Registry of available transform functions
-const operations: Record<string, RecipeTransformFn> = {
+const operations: Record<string, RecipeTransformFn | (() => Promise<void>)> = {
   "add-test-field": (recipe: IRecipeDocument) => {
     // Use type assertion to allow adding dynamic property
     interface RecipeWithTestField extends IRecipeDocument {
@@ -270,6 +271,12 @@ const operations: Record<string, RecipeTransformFn> = {
       return recipe;
     }
   },
+
+  "backfill-recipe-indexes": async (recipe: IRecipeDocument) => {
+    // This is a placeholder function that won't be used directly
+    // The actual backfill is handled separately
+    return recipe;
+  },
 };
 
 /**
@@ -309,6 +316,15 @@ export default async function handler(
       return res.status(400).json({ message: "Invalid operation" });
     }
 
+    // Special handling for backfill-recipe-indexes operation
+    if (operation === "backfill-recipe-indexes") {
+      await backfillRecipeIndexes();
+      return res.status(200).json({
+        message: "Recipe index backfill completed successfully",
+        debug,
+      });
+    }
+
     // Get the operation function from the registry
     const operationFn = operations[operation];
     if (!operationFn) {
@@ -319,9 +335,12 @@ export default async function handler(
     }
 
     // Execute the batch operation
-    const result: BatchOperationResult = await batchUpdateRecipes(operationFn, {
-      debug,
-    });
+    const result: BatchOperationResult = await batchUpdateRecipes(
+      operationFn as RecipeTransformFn,
+      {
+        debug,
+      }
+    );
 
     return res.status(200).json({
       message: `Batch operation '${operation}' completed successfully`,

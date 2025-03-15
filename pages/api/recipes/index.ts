@@ -23,8 +23,8 @@ async function getRecipes(
     const total = await Recipe.countDocuments();
     const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
 
-    // Build query
-    let recipesQuery = Recipe.find().sort({ createdAt: -1 });
+    // Build query - sort by index instead of createdAt
+    let recipesQuery = Recipe.find().sort({ index: 1 });
 
     // Apply pagination only if not showing all
     if (!showAll) {
@@ -164,6 +164,14 @@ async function createRecipe(req: AuthNextApiRequest, res: NextApiResponse) {
     }
     */
 
+    // Find the highest index for this user's recipes
+    const highestIndexRecipe = await Recipe.findOne({ user: req.user._id })
+      .sort({ index: -1 })
+      .select("index");
+
+    // Set the new index to be one higher than the current max (or 0 if no recipes exist)
+    const newIndex = highestIndexRecipe ? highestIndexRecipe.index + 1 : 0;
+
     // Create a new recipe
     const recipe = new Recipe({
       title,
@@ -178,6 +186,7 @@ async function createRecipe(req: AuthNextApiRequest, res: NextApiResponse) {
       // fullRecipe temporarily disabled to reduce API costs
       // fullRecipe: processedFullRecipe,
       sourceUrl,
+      index: newIndex, // Set the index for the new recipe
     });
 
     // Save to database
