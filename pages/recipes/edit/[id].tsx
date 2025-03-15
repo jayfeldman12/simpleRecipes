@@ -2,6 +2,8 @@ import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import { recipeAPI } from "../../../src/services/api";
 import {
+  IngredientItem,
+  IngredientSection,
   IngredientType,
   InstructionItem,
   Recipe as RecipeType,
@@ -103,12 +105,49 @@ export default function EditRecipe() {
   const handleIngredientChange = (index: number, value: string) => {
     const newIngredients = [...formData.ingredients];
     if ("text" in newIngredients[index]) {
-      (newIngredients[index] as any).text = value;
-    } else {
-      // For now, just replace with a simple ingredient if it was a section
-      newIngredients[index] = { text: value };
+      (newIngredients[index] as IngredientItem).text = value;
+    } else if ("sectionTitle" in newIngredients[index]) {
+      (newIngredients[index] as IngredientSection).sectionTitle = value;
     }
     setFormData({ ...formData, ingredients: newIngredients });
+  };
+
+  const handleSubIngredientChange = (
+    sectionIndex: number,
+    itemIndex: number,
+    value: string
+  ) => {
+    const newIngredients = [...formData.ingredients];
+    const section = newIngredients[sectionIndex] as IngredientSection;
+
+    if (section && "ingredients" in section && section.ingredients[itemIndex]) {
+      if ("text" in section.ingredients[itemIndex]) {
+        (section.ingredients[itemIndex] as IngredientItem).text = value;
+        setFormData({ ...formData, ingredients: newIngredients });
+      }
+    }
+  };
+
+  const addSubIngredient = (sectionIndex: number) => {
+    const newIngredients = [...formData.ingredients];
+    const section = newIngredients[sectionIndex] as IngredientSection;
+
+    if (section && "ingredients" in section) {
+      section.ingredients.push({ text: "" });
+      setFormData({ ...formData, ingredients: newIngredients });
+    }
+  };
+
+  const removeSubIngredient = (sectionIndex: number, itemIndex: number) => {
+    const newIngredients = [...formData.ingredients];
+    const section = newIngredients[sectionIndex] as IngredientSection;
+
+    if (section && "ingredients" in section) {
+      section.ingredients = section.ingredients.filter(
+        (_, i) => i !== itemIndex
+      );
+      setFormData({ ...formData, ingredients: newIngredients });
+    }
   };
 
   const handleInstructionChange = (index: number, value: string) => {
@@ -124,6 +163,16 @@ export default function EditRecipe() {
     setFormData({
       ...formData,
       ingredients: [...formData.ingredients, { text: "" }],
+    });
+  };
+
+  const addIngredientSection = () => {
+    setFormData({
+      ...formData,
+      ingredients: [
+        ...formData.ingredients,
+        { sectionTitle: "", ingredients: [] },
+      ],
     });
   };
 
@@ -251,41 +300,122 @@ export default function EditRecipe() {
             </label>
             <div className="space-y-3">
               {formData.ingredients.map((ingredient, index) => (
-                <div key={index} className="flex gap-2">
-                  <input
-                    type="text"
-                    value={"text" in ingredient ? ingredient.text : "Section"}
-                    onChange={(e) =>
-                      handleIngredientChange(index, e.target.value)
-                    }
-                    className="flex-1 px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder={`Ingredient ${index + 1}`}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeIngredient(index)}
-                    className="px-3 py-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
+                <div key={index}>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={
+                        "text" in ingredient
+                          ? ingredient.text
+                          : "sectionTitle" in ingredient
+                          ? ingredient.sectionTitle
+                          : ""
+                      }
+                      onChange={(e) =>
+                        handleIngredientChange(index, e.target.value)
+                      }
+                      className={`flex-1 px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        "sectionTitle" in ingredient
+                          ? "font-bold bg-gray-50"
+                          : ""
+                      }`}
+                      placeholder={
+                        "text" in ingredient
+                          ? `Ingredient ${index + 1}`
+                          : "Section title"
+                      }
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeIngredient(index)}
+                      className="px-3 py-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
                     >
-                      <path
-                        fillRule="evenodd"
-                        d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </button>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Sub-ingredients for sections */}
+                  {"sectionTitle" in ingredient && (
+                    <div className="ml-6 mt-2 space-y-2">
+                      <div className="text-xs text-gray-500 mb-1">
+                        Section Ingredients:
+                      </div>
+                      {ingredient.ingredients.map((subIngredient, subIndex) => (
+                        <div key={subIndex} className="flex gap-2">
+                          <input
+                            type="text"
+                            value={
+                              "text" in subIngredient ? subIngredient.text : ""
+                            }
+                            onChange={(e) =>
+                              handleSubIngredientChange(
+                                index,
+                                subIndex,
+                                e.target.value
+                              )
+                            }
+                            className="flex-1 px-3 py-1 text-sm rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder={`Sub-ingredient ${subIndex + 1}`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeSubIngredient(index, subIndex)}
+                            className="px-2 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 w-4"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => addSubIngredient(index)}
+                        className="inline-flex items-center px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4 mr-1"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        Add Sub-ingredient
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
               <button
                 type="button"
                 onClick={addIngredient}
-                className="inline-flex items-center px-3 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+                className="inline-flex items-center px-3 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors mr-2"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -300,6 +430,25 @@ export default function EditRecipe() {
                   />
                 </svg>
                 Add Ingredient
+              </button>
+              <button
+                type="button"
+                onClick={addIngredientSection}
+                className="inline-flex items-center px-3 py-2 text-sm text-green-600 hover:text-green-800 hover:bg-green-50 rounded transition-colors"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 mr-1"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                Add Section
               </button>
             </div>
           </div>
