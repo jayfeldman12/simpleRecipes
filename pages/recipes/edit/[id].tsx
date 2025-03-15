@@ -218,6 +218,13 @@ export default function EditRecipe() {
     setFormData({ ...formData, instructions: newInstructions });
   };
 
+  const addIngredientBeforeSection = (sectionIndex: number) => {
+    const newIngredients = [...formData.ingredients];
+    // Insert a new ingredient at the specified index
+    newIngredients.splice(sectionIndex, 0, { text: "" });
+    setFormData({ ...formData, ingredients: newIngredients });
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -326,6 +333,32 @@ export default function EditRecipe() {
             <div className="space-y-3">
               {formData.ingredients.map((ingredient, index) => (
                 <div key={index}>
+                  {/* Add ingredient button before a section */}
+                  {"sectionTitle" in ingredient &&
+                    index > 0 &&
+                    !("sectionTitle" in formData.ingredients[index - 1]) && (
+                      <div className="mb-2">
+                        <button
+                          type="button"
+                          onClick={() => addIngredientBeforeSection(index)}
+                          className="inline-flex items-center px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-4 w-4 mr-1"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                          Add Ingredient
+                        </button>
+                      </div>
+                    )}
                   <div className="flex gap-2">
                     <input
                       type="text"
@@ -477,44 +510,46 @@ export default function EditRecipe() {
                   )}
                 </div>
               ))}
-              <button
-                type="button"
-                onClick={addIngredient}
-                className="inline-flex items-center px-3 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors mr-2"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 mr-1"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
+              <div className="flex flex-wrap gap-2 mt-4">
+                <button
+                  type="button"
+                  onClick={addIngredient}
+                  className="inline-flex items-center px-3 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
                 >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                Add Ingredient
-              </button>
-              <button
-                type="button"
-                onClick={addIngredientSection}
-                className="inline-flex items-center px-3 py-2 text-sm text-green-600 hover:text-green-800 hover:bg-green-50 rounded transition-colors"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 mr-1"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 mr-1"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  Add Ingredient
+                </button>
+                <button
+                  type="button"
+                  onClick={addIngredientSection}
+                  className="inline-flex items-center px-3 py-2 text-sm text-green-600 hover:text-green-800 hover:bg-green-50 rounded transition-colors"
                 >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                Add Section
-              </button>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 mr-1"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  Add Section
+                </button>
+              </div>
             </div>
           </div>
 
