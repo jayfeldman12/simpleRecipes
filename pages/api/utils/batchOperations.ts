@@ -188,7 +188,7 @@ export async function batchUpdateRecipes(
 /**
  * Backfill recipe indexes for all users
  * This function assigns an incremental index to each recipe per user
- * based on the recipe's creation date
+ * based on the recipe's creation date (newest first)
  */
 export async function backfillRecipeIndexes(): Promise<void> {
   // Connect to database
@@ -201,22 +201,42 @@ export async function backfillRecipeIndexes(): Promise<void> {
     const users = await Recipe.distinct("user");
     console.log(`Found ${users.length} users with recipes`);
 
+    let totalUpdated = 0;
+
     for (const userId of users) {
-      // Get all recipes for this user, sorted by creation date
+      // Get all recipes for this user, sorted by creation date (newest first)
       const recipes = await Recipe.find({ user: userId })
-        .sort({ createdAt: 1 })
-        .select("_id title index");
+        .sort({ createdAt: -1 })
+        .select("_id title");
 
       console.log(`Processing ${recipes.length} recipes for user ${userId}`);
 
       // Update each recipe with an incremental index
       for (let i = 0; i < recipes.length; i++) {
-        await Recipe.updateOne({ _id: recipes[i]._id }, { $set: { index: i } });
-        console.log(`Updated recipe "${recipes[i].title}" with index ${i}`);
+        try {
+          // Force update the index field directly in MongoDB
+          const result = await Recipe.collection.updateOne(
+            { _id: recipes[i]._id },
+            { $set: { index: i } }
+          );
+
+          if (result.modifiedCount > 0) {
+            totalUpdated++;
+            console.log(`Updated recipe "${recipes[i].title}" with index ${i}`);
+          } else {
+            console.log(
+              `Recipe not updated: ${recipes[i]._id} (matched: ${result.matchedCount})`
+            );
+          }
+        } catch (err) {
+          console.error(`Error updating recipe ${recipes[i]._id}:`, err);
+        }
       }
     }
 
-    console.log("Recipe index backfill completed successfully");
+    console.log(
+      `Recipe index backfill completed successfully. Updated ${totalUpdated} recipes.`
+    );
   } catch (error) {
     console.error("Error during backfill:", error);
     throw error;

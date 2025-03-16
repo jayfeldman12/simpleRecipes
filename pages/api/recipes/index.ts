@@ -23,7 +23,7 @@ async function getRecipes(
     const total = await Recipe.countDocuments();
     const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
 
-    // Build query - sort by index instead of createdAt
+    // Build query - sort by index in ascending order
     let recipesQuery = Recipe.find().sort({ index: 1 });
 
     // Apply pagination only if not showing all

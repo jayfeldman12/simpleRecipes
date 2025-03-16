@@ -318,11 +318,20 @@ export default async function handler(
 
     // Special handling for backfill-recipe-indexes operation
     if (operation === "backfill-recipe-indexes") {
-      await backfillRecipeIndexes();
-      return res.status(200).json({
-        message: "Recipe index backfill completed successfully",
-        debug,
-      });
+      try {
+        await backfillRecipeIndexes();
+        return res.status(200).json({
+          message: "Recipe index backfill completed successfully",
+          debug,
+        });
+      } catch (error) {
+        console.error("Error during backfill:", error);
+        return res.status(500).json({
+          message: "Error during recipe index backfill",
+          error:
+            process.env.NODE_ENV === "development" ? String(error) : undefined,
+        });
+      }
     }
 
     // Get the operation function from the registry
