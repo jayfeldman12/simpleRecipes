@@ -53,4 +53,5 @@ export interface Recipe {
   isFavorite?: boolean;
   originalImageUrl?: string;
   index?: number;
+  recipeOrder?: number;
 }

@@ -1,230 +1,304 @@
-import Head from "next/head";
+import {
+  closestCenter,
+  DndContext,
+  DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import AddIcon from "@mui/icons-material/Add";
+import {
+  Box,
+  Button,
+  Container,
+  LinearProgress,
+  Typography,
+} from "@mui/material";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
+import React, { useEffect, useState } from "react";
 import ProtectedRoute from "../../src/components/ProtectedRoute";
 import SearchBar from "../../src/components/SearchBar";
-import { useAuth } from "../../src/context/AuthContext";
-import { recipeAPI } from "../../src/services/api";
-import { Recipe as ImportedRecipe } from "../../src/types/recipe";
-import RecipeCard, { favoritesUpdated } from "../components/RecipeCard";
+import useDebounce from "../../src/hooks/useDebounce";
+import RecipeCard from "../components/RecipeCard";
+import { Recipe } from "./interfaces";
 
-// Local recipe type with required _id
-interface Recipe extends Omit<ImportedRecipe, "_id"> {
-  _id: string;
-}
-
-const MyRecipesPage = () => {
-  const { user } = useAuth();
+const MyRecipesPage: React.FC = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
-    const fetchUserRecipes = async () => {
+    async function fetchUserRecipes() {
+      if (status === "loading") return;
+      if (!session) {
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
-        const data = await recipeAPI.getUserRecipes();
+        setError(null);
 
-        // Handle array or object response
-        let recipesData: Recipe[] = [];
-        if (Array.isArray(data)) {
-          recipesData = data as Recipe[];
-        } else {
-          // Data is an object, but we expect an array directly
-          // This is a fallback in case the API response format changes
-          recipesData = [];
+        // Fetch user recipes
+        const recipesResponse = await fetch("/api/recipes/user/recipes");
+        if (!recipesResponse.ok) {
+          throw new Error(
+            `Error fetching recipes: ${recipesResponse.statusText}`
+          );
         }
+        const recipesData = await recipesResponse.json();
+        const fetchedRecipes: Recipe[] = Array.isArray(recipesData)
+          ? recipesData
+          : [];
 
-        // Ensure all recipes have isFavorite property
-        const processedRecipes = recipesData.map((recipe) => ({
+        // Fetch user recipe orders
+        const ordersResponse = await fetch(
+          "/api/recipes/get-user-recipe-orders?recipeType=own"
+        );
+        if (!ordersResponse.ok) {
+          throw new Error(
+            `Error fetching recipe orders: ${ordersResponse.statusText}`
+          );
+        }
+        const ordersData = await ordersResponse.json();
+        const userRecipeOrders = ordersData.userRecipeOrders || {};
+
+        // Assign orders to recipes
+        const recipesWithOrders = fetchedRecipes.map((recipe) => ({
           ...recipe,
-          isFavorite: Boolean(recipe.isFavorite),
+          userRecipeOrder: userRecipeOrders[recipe._id]?.order,
         }));
 
-        // Sort recipes - favorites first
-        const sortedRecipes = processedRecipes.sort((a: Recipe, b: Recipe) => {
-          // If one is favorite and other is not, favorite comes first
-          if (a.isFavorite && !b.isFavorite) return -1;
-          if (!a.isFavorite && b.isFavorite) return 1;
-          // Otherwise maintain existing order
-          return 0;
+        // Sort recipes by user order, then by recipe order, then by index, and finally by creation date
+        const sortedRecipes = [...recipesWithOrders].sort((a, b) => {
+          // First by user recipe order (if available)
+          if (
+            a.userRecipeOrder !== undefined &&
+            b.userRecipeOrder !== undefined
+          ) {
+            return a.userRecipeOrder - b.userRecipeOrder;
+          }
+          if (a.userRecipeOrder !== undefined) return -1;
+          if (b.userRecipeOrder !== undefined) return 1;
+
+          // Then by recipe order (if available)
+          if (a.recipeOrder !== undefined && b.recipeOrder !== undefined) {
+            return a.recipeOrder - b.recipeOrder;
+          }
+          if (a.recipeOrder !== undefined) return -1;
+          if (b.recipeOrder !== undefined) return 1;
+
+          // Then by index (if available)
+          if (a.index !== undefined && b.index !== undefined) {
+            return a.index - b.index;
+          }
+          if (a.index !== undefined) return -1;
+          if (b.index !== undefined) return 1;
+
+          // Finally by creation date (newest first)
+          return (
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
         });
 
         setRecipes(sortedRecipes);
       } catch (err) {
-        console.error("Failed to fetch recipes:", err);
-        setError("Failed to load your recipes. Please try again later.");
+        console.error("Error fetching recipes:", err);
+        setError(
+          err instanceof Error
+            ? err.message
+            : "An error occurred fetching recipes"
+        );
       } finally {
         setLoading(false);
       }
-    };
-
-    fetchUserRecipes();
-  }, []);
-
-  // Filter recipes based on search query
-  const filteredRecipes = useMemo(() => {
-    if (!searchQuery) return recipes;
-
-    const query = searchQuery.toLowerCase();
-    return recipes.filter(
-      (recipe) =>
-        recipe.title.toLowerCase().includes(query) ||
-        recipe.description.toLowerCase().includes(query)
-    );
-  }, [recipes, searchQuery]);
-
-  // Listen for favorites changes
-  useEffect(() => {
-    const handleFavoritesChange = (e: Event) => {
-      if (e instanceof CustomEvent && e.detail) {
-        const { recipeId, isFavorite } = e.detail;
-
-        // Update the isFavorite status for this recipe in our state
-        setRecipes((prevRecipes) => {
-          const updatedRecipes = prevRecipes.map((recipe) =>
-            recipe._id === recipeId ? { ...recipe, isFavorite } : recipe
-          );
-
-          // Re-sort the recipes to keep favorites at the top
-          return updatedRecipes.sort((a: Recipe, b: Recipe) => {
-            if (a.isFavorite && !b.isFavorite) return -1;
-            if (!a.isFavorite && b.isFavorite) return 1;
-            return 0;
-          });
-        });
-      }
-    };
-
-    favoritesUpdated.addEventListener(
-      "favoritesChanged",
-      handleFavoritesChange
-    );
-
-    return () => {
-      favoritesUpdated.removeEventListener(
-        "favoritesChanged",
-        handleFavoritesChange
-      );
-    };
-  }, []);
-
-  const handleDeleteRecipe = async (recipeId: string) => {
-    if (!confirm("Are you sure you want to delete this recipe?")) {
-      return;
     }
 
-    try {
-      await recipeAPI.deleteRecipe(recipeId);
-      setRecipes(recipes.filter((recipe) => recipe._id !== recipeId));
-    } catch (err) {
-      console.error("Failed to delete recipe:", err);
-      alert("Failed to delete recipe. Please try again.");
+    fetchUserRecipes();
+  }, [session, status]);
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      // Find the indexes of the items
+      const oldIndex = recipes.findIndex((recipe) => recipe._id === active.id);
+      const newIndex = recipes.findIndex((recipe) => recipe._id === over.id);
+
+      if (oldIndex === -1 || newIndex === -1) return;
+
+      // Create a new array with the updated order
+      const newRecipes = [...recipes];
+      const [movedRecipe] = newRecipes.splice(oldIndex, 1);
+      newRecipes.splice(newIndex, 0, movedRecipe);
+
+      // Update the userRecipeOrder values
+      const updatedRecipes = newRecipes.map((recipe, index) => ({
+        ...recipe,
+        userRecipeOrder: index,
+      }));
+
+      // Update the state
+      setRecipes(updatedRecipes);
+
+      try {
+        // Send the updated order to the server
+        const updates = updatedRecipes.map((recipe, index) => ({
+          recipeId: recipe._id,
+          order: index,
+          isFavorite: false,
+          recipeType: "own",
+        }));
+
+        const response = await fetch("/api/recipes/update-user-recipe-orders", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ updates }),
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            `Error updating recipe order: ${response.statusText}`
+          );
+        }
+      } catch (err) {
+        console.error("Error updating recipe order:", err);
+      }
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
+  const filteredRecipes = recipes.filter(
+    (recipe) =>
+      recipe.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      recipe.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const activeRecipe = activeId
+    ? recipes.find((r) => r._id === activeId)
+    : null;
 
   return (
-    <div className="bg-gray-50 min-h-screen">
-      <Head>
-        <title>My Recipes | Simple Recipes</title>
-        <meta
-          name="description"
-          content="View and manage your personal recipes"
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 3,
+        }}
+      >
+        <Typography variant="h4" component="h1">
+          My Recipes
+        </Typography>
+        <Button
+          component={Link}
+          href="/recipes/new"
+          variant="contained"
+          color="primary"
+          startIcon={<AddIcon />}
+        >
+          New Recipe
+        </Button>
+      </Box>
+
+      {/* Search bar */}
+      <Box sx={{ mb: 3 }}>
+        <SearchBar
+          placeholder="Search recipes..."
+          initialValue={searchQuery}
+          onSearch={(query: string) => setSearchQuery(query)}
         />
-      </Head>
+      </Box>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800">My Recipes</h1>
-            <p className="text-gray-600 mt-1">
-              Manage your personal recipe collection
-            </p>
-          </div>
+      {/* Loading indicator */}
+      {loading && <LinearProgress sx={{ mb: 2 }} />}
 
-          <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-            <SearchBar
-              onSearch={setSearchQuery}
-              className="w-full sm:w-64 lg:w-80"
-            />
+      {/* Error message */}
+      {error && (
+        <Typography color="error" sx={{ mb: 2 }}>
+          {error}
+        </Typography>
+      )}
 
-            <Link
-              href="/recipes/create"
-              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors flex items-center justify-center"
+      {/* No recipes message */}
+      {!loading && !error && filteredRecipes.length === 0 && (
+        <Typography>
+          {searchQuery
+            ? "No recipes found matching your search."
+            : "You haven't created any recipes yet."}
+        </Typography>
+      )}
+
+      {/* Recipes list with drag-and-drop */}
+      {!loading && filteredRecipes.length > 0 && (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={filteredRecipes.map((recipe) => recipe._id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <Box
+              sx={{
+                display: "grid",
+                gap: 2,
+                gridTemplateColumns: {
+                  xs: "1fr",
+                  sm: "1fr 1fr",
+                  md: "1fr 1fr 1fr",
+                },
+              }}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 mr-1"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
-                  clipRule="evenodd"
+              {filteredRecipes.map((recipe) => (
+                <RecipeCard
+                  key={recipe._id}
+                  recipe={{
+                    _id: recipe._id,
+                    title: recipe.title,
+                    description: recipe.description,
+                    imageUrl: recipe.imageUrl,
+                    cookingTime: recipe.cookingTime,
+                    isFavorite: recipe.isFavorite,
+                  }}
+                  isDraggable={true}
                 />
-              </svg>
-              Create Recipe
-            </Link>
-          </div>
-        </div>
-
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
-            {error}
-          </div>
-        )}
-
-        {filteredRecipes.length === 0 ? (
-          <div className="bg-white p-8 rounded-lg shadow-md text-center">
-            {searchQuery ? (
-              <>
-                <h2 className="text-xl font-semibold mb-2">No matches found</h2>
-                <p className="text-gray-600">
-                  No recipes match your search "{searchQuery}". Try a different
-                  search term.
-                </p>
-              </>
-            ) : (
-              <>
-                <h2 className="text-xl font-semibold mb-2">No recipes yet</h2>
-                <p className="text-gray-600">
-                  Create your first recipe by clicking the 'Create Recipe'
-                  button above!
-                </p>
-              </>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredRecipes.map((recipe) => (
-              <RecipeCard
-                key={recipe._id}
-                recipe={recipe}
-                onDelete={handleDeleteRecipe}
-                isEditable={true}
-              />
-            ))}
-          </div>
-        )}
-      </main>
-    </div>
+              ))}
+            </Box>
+          </SortableContext>
+        </DndContext>
+      )}
+    </Container>
   );
 };
 
-const WrappedMyRecipesPage = () => (
-  <ProtectedRoute>
-    <MyRecipesPage />
-  </ProtectedRoute>
-);
-
-export default WrappedMyRecipesPage;
+export default function ProtectedMyRecipesPage() {
+  return (
+    <ProtectedRoute>
+      <MyRecipesPage />
+    </ProtectedRoute>
+  );
+}

@@ -1,29 +1,24 @@
+import { signIn, useSession } from "next-auth/react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { FormEvent, useEffect, useState } from "react";
-import { useAuth } from "../src/context/AuthContext";
 
 const Login = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [formError, setFormError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const { login, loading, error, clearError, user } = useAuth();
   const router = useRouter();
+  const { data: session } = useSession();
 
   // Redirect if user is already logged in
   useEffect(() => {
-    if (user) {
+    if (session) {
       router.push("/");
     }
-  }, [user, router]);
-
-  // Clear auth errors when component mounts or unmounts
-  useEffect(() => {
-    clearError();
-    return () => clearError();
-  }, [clearError]);
+  }, [session, router]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -36,10 +31,24 @@ const Login = () => {
     }
 
     try {
-      await login(username, password);
-      // Redirect will happen automatically from the useEffect above
+      setIsLoading(true);
+      const result = await signIn("credentials", {
+        redirect: false,
+        username,
+        password,
+      });
+
+      if (result?.error) {
+        setFormError(result.error);
+      } else {
+        // Success - session will be set by NextAuth
+        router.push("/");
+      }
     } catch (err) {
       console.error("Login error:", err);
+      setFormError("An unexpected error occurred");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -68,9 +77,9 @@ const Login = () => {
 
         <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
           <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-            {(error || formError) && (
+            {formError && (
               <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-                {error || formError}
+                {formError}
               </div>
             )}
 
@@ -120,10 +129,10 @@ const Login = () => {
               <div>
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={isLoading}
                   className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
                 >
-                  {loading ? "Signing in..." : "Sign in"}
+                  {isLoading ? "Signing in..." : "Sign in"}
                 </button>
               </div>
             </form>

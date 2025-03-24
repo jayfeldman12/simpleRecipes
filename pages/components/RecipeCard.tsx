@@ -1,8 +1,8 @@
+import { useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { useEffect, useState } from "react";
-import { useAuth } from "../../src/context/AuthContext";
 import { recipeAPI } from "../../src/services/api";
 
 // Create a global event bus for favorites updates
@@ -21,6 +21,7 @@ interface RecipeCardProps {
   };
   from?: string;
   isEditable?: boolean;
+  isDraggable?: boolean;
   onDelete?: (id: string) => void;
   onFavoriteChange?: (id: string, isFavorite: boolean) => void;
 }
@@ -29,12 +30,14 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
   recipe,
   from = "",
   isEditable = false,
+  isDraggable = false,
   onDelete,
   onFavoriteChange,
 }) => {
   const router = useRouter();
   const currentPath = router.pathname;
-  const { user } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
   const [isFavorite, setIsFavorite] = useState<boolean>(false);
   // Safe default for image
   const [imgSrc, setImgSrc] = useState<string>("/images/default-recipe.jpg");

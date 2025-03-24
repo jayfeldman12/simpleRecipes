@@ -1,19 +1,20 @@
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
 import { useEffect } from "react";
-import { useAuth } from "../src/context/AuthContext";
 
 export default function Home() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { data: session, status } = useSession();
+  const loading = status === "loading";
 
   useEffect(() => {
-    if (!authLoading) {
+    if (!loading) {
       // If the user is logged in, redirect to my-recipes
       // If not logged in, redirect to the all recipes page
-      const targetPath = user ? "/recipes/my-recipes" : "/recipes";
+      const targetPath = session ? "/recipes/my-recipes" : "/recipes";
       router.replace(targetPath);
     }
-  }, [user, authLoading, router]);
+  }, [session, loading, router]);
 
   // Show a minimal loading state while redirecting
   return (

@@ -300,4 +300,163 @@ export const recipeAPI = {
 
     return handleResponse(response);
   },
+
+  // Update recipe index (for reordering)
+  updateRecipeIndex: async (
+    recipeId: string,
+    newIndex: number
+  ): Promise<any> => {
+    const token = getAuthToken();
+
+    if (!token) {
+      throw new Error("Authentication required");
+    }
+
+    const requestBody = { recipeId, newIndex };
+    console.log("Sending update index request:", requestBody);
+
+    const response = await fetch(`${API_URL}/recipes/update-index`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    const result = await handleResponse(response);
+    console.log("Update index response:", result);
+    return result;
+  },
+
+  // Bulk update recipe indexes (for reordering multiple recipes at once)
+  bulkUpdateRecipeIndexes: async (
+    updates: { recipeId: string; newIndex: number }[]
+  ): Promise<any> => {
+    const token = getAuthToken();
+
+    if (!token) {
+      throw new Error("Authentication required");
+    }
+
+    console.log("Sending bulk update indexes request:", { updates });
+
+    const response = await fetch(`${API_URL}/recipes/bulk-update-indexes`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ updates }),
+    });
+
+    const result = await handleResponse(response);
+    console.log("Bulk update indexes response:", result);
+    return result;
+  },
+
+  // Update user recipe orders in the join table
+  updateUserRecipeOrders: async (
+    updates: { recipeId: string; order: number }[]
+  ): Promise<any> => {
+    const token = getAuthToken();
+
+    if (!token) {
+      throw new Error("Authentication required");
+    }
+
+    console.log("Sending update user recipe orders request:", { updates });
+
+    const response = await fetch(
+      `${API_URL}/recipes/update-user-recipe-orders`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ updates }),
+      }
+    );
+
+    const result = await handleResponse(response);
+    console.log("Update user recipe orders response:", result);
+    return result;
+  },
+};
+
+/**
+ * Get user recipe orders
+ */
+export const getUserRecipeOrders = async (
+  type?: string
+): Promise<
+  Record<string, { order: number; isFavorite: boolean; recipeType: string }>
+> => {
+  try {
+    const token = getAuthToken();
+    if (!token) {
+      throw new Error("Not authenticated");
+    }
+
+    const url = type
+      ? `${API_URL}/recipes/get-user-recipe-orders?type=${type}`
+      : `${API_URL}/recipes/get-user-recipe-orders`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to get user recipe orders");
+    }
+
+    return data.data;
+  } catch (error) {
+    console.error("Error getting user recipe orders:", error);
+    return {};
+  }
+};
+
+/**
+ * Update user recipe orders
+ */
+export const updateUserRecipeOrders = async (
+  updates: { recipeId: string; order: number }[]
+): Promise<any> => {
+  try {
+    const token = getAuthToken();
+    if (!token) {
+      throw new Error("Not authenticated");
+    }
+
+    const response = await fetch(
+      `${API_URL}/recipes/update-user-recipe-orders`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ updates }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to update user recipe orders");
+    }
+
+    console.log("User recipe orders updated:", data);
+    return data;
+  } catch (error) {
+    console.error("Error updating user recipe orders:", error);
+    throw error;
+  }
 };

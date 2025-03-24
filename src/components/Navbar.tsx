@@ -1,7 +1,7 @@
+import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { ReactNode, useState } from "react";
-import { useAuth } from "../context/AuthContext";
 
 interface NavLinkProps {
   href: string;
@@ -12,10 +12,11 @@ interface NavLinkProps {
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await signOut({ redirect: false });
     router.push("/login");
   };
 
@@ -111,7 +112,7 @@ const Navbar = () => {
           <div className="hidden sm:ml-6 sm:flex sm:items-center">
             {user ? (
               <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-700">{user.username}</span>
+                <span className="text-sm text-gray-700">{user.name}</span>
                 <button
                   onClick={handleLogout}
                   className="text-sm font-medium text-indigo-600 hover:text-indigo-500 focus:outline-none"
@@ -259,7 +260,7 @@ const Navbar = () => {
             <div className="space-y-1">
               <div className="px-4 py-2">
                 <p className="text-base font-medium text-gray-800">
-                  {user.username}
+                  {user.name}
                 </p>
               </div>
               <button

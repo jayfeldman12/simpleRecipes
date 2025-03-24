@@ -1,9 +1,13 @@
+import { useSession } from "next-auth/react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
-import { useAuth } from "../../src/context/AuthContext";
-import { recipeAPI } from "../../src/services/api";
+import {
+  getUserRecipeOrders,
+  recipeAPI,
+  updateUserRecipeOrders,
+} from "../../src/services/api";
 import { IngredientItem, IngredientType, Recipe } from "../../src/types/recipe";
 import { favoritesUpdated } from "../components/RecipeCard";
 
@@ -60,7 +64,8 @@ const RenderIngredients = ({
 export default function RecipeDetail() {
   const router = useRouter();
   const { id } = router.query;
-  const { user } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -80,57 +85,60 @@ export default function RecipeDetail() {
       if (!id) return;
 
       try {
-        setLoading(true);
         const data = await recipeAPI.getRecipeById(id as string);
         setRecipe(data);
-        setIsFavorite(data.isFavorite || false);
+
+        // Check if this recipe is a favorite for the current user
+        if (user && user.id) {
+          try {
+            const userRecipeOrdersData = await getUserRecipeOrders();
+            const favorites = userRecipeOrdersData || {};
+            setIsFavorite(Boolean(favorites[id as string]?.isFavorite));
+          } catch (err) {
+            console.error("Error fetching favorites:", err);
+          }
+        }
+
+        setLoading(false);
       } catch (err) {
-        console.error("Failed to fetch recipe:", err);
-        setError("Failed to load recipe details. Please try again later.");
-      } finally {
+        setError("Failed to load recipe. Please try again.");
         setLoading(false);
       }
     };
 
     fetchRecipe();
-  }, [id]);
+  }, [id, user]);
 
-  const handleFavoriteToggle = async () => {
-    if (!user || !recipe) return;
+  const toggleFavorite = async () => {
+    if (!recipe || !user) return;
 
     try {
-      // Optimistically update UI before API call completes
-      const newFavoriteStatus = !isFavorite;
-      setIsFavorite(newFavoriteStatus);
+      const updatedValue = !isFavorite;
+      setIsFavorite(updatedValue);
 
-      // Dispatch global event to update other instances of this recipe
-      const event = new CustomEvent("favoritesChanged", {
-        detail: {
-          recipeId: recipe._id,
-          isFavorite: newFavoriteStatus,
-        },
-      });
-      favoritesUpdated.dispatchEvent(event);
+      // Call API to update favorite status
+      await updateUserRecipeOrders([
+        {
+          recipeId: id as string,
+          order: 0,
+          isFavorite: updatedValue,
+          recipeType: "favorite",
+        } as any, // Type assertion to bypass TypeScript error
+      ]);
 
-      // Now make the actual API call
-      if (newFavoriteStatus) {
-        await recipeAPI.addToFavorites(recipe._id as string);
-      } else {
-        await recipeAPI.removeFromFavorites(recipe._id as string);
-      }
+      // Dispatch custom event for other components
+      favoritesUpdated.dispatchEvent(
+        new CustomEvent("favoritesChanged", {
+          detail: {
+            recipeId: id as string,
+            isFavorite: updatedValue,
+          },
+        })
+      );
     } catch (err) {
-      // If API call fails, revert the optimistic update
+      // Revert UI on error
+      setIsFavorite(!isFavorite);
       console.error("Failed to update favorite status:", err);
-      setIsFavorite(!isFavorite); // Restore previous state
-
-      // Dispatch event to update other components with the reverted state
-      const revertEvent = new CustomEvent("favoritesChanged", {
-        detail: {
-          recipeId: recipe._id,
-          isFavorite: !isFavorite, // The original state
-        },
-      });
-      favoritesUpdated.dispatchEvent(revertEvent);
     }
   };
 
@@ -219,7 +227,7 @@ export default function RecipeDetail() {
               />
               {user && (
                 <button
-                  onClick={handleFavoriteToggle}
+                  onClick={toggleFavorite}
                   className="absolute top-4 right-4 p-2 rounded-full bg-white shadow-md hover:bg-gray-100"
                 >
                   <svg
@@ -249,7 +257,7 @@ export default function RecipeDetail() {
                 <h1 className="text-3xl font-bold text-gray-800">
                   {recipe.title}
                 </h1>
-                {user && recipe.user && user._id === recipe.user._id && (
+                {user && recipe.user && user.id === recipe.user._id && (
                   <div className="flex gap-2">
                     <Link
                       href={`/recipes/edit/${recipe._id}`}
@@ -426,7 +434,7 @@ export default function RecipeDetail() {
               Back
             </Link>
             {user && (
-              <button onClick={handleFavoriteToggle} className="p-1">
+              <button onClick={toggleFavorite} className="p-1">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   className={`h-5 w-5 ${
@@ -495,7 +503,7 @@ export default function RecipeDetail() {
               </a>
             )}
           </div>
-          {user && recipe.user && user._id === recipe.user._id && (
+          {user && recipe.user && user.id === recipe.user._id && (
             <div className="grid grid-cols-2 gap-2 mt-2">
               <Link
                 href={`/recipes/edit/${recipe._id}`}

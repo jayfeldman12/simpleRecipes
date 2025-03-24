@@ -1,12 +1,11 @@
 import jwt from "jsonwebtoken";
 import { NextApiRequest, NextApiResponse } from "next";
-import User from "../models/User";
-import { IUserDocument } from "../models/types";
-import dbConnect from "./dbConnect";
+import { getSession } from "next-auth/react";
+import { connectDB as connectToDB } from "../../utils/database";
 
-// Define extended type for request that includes user
+// Extended request with user info
 export interface AuthNextApiRequest extends NextApiRequest {
-  user?: IUserDocument;
+  user?: { _id: string };
 }
 
 // Check if JWT_SECRET is configured
@@ -25,9 +24,14 @@ const checkJwtSecret = () => {
 // Run the check when this module is imported
 checkJwtSecret();
 
-// Connect to MongoDB - using our new dbConnect function
-export const connectDB = async () => {
-  return await dbConnect();
+// Connect to database
+export const connectDB = async (): Promise<void> => {
+  try {
+    await connectToDB();
+  } catch (error) {
+    console.error("Database connection error:", error);
+    throw new Error("Failed to connect to database");
+  }
 };
 
 // Generate a JWT token
@@ -70,144 +74,27 @@ export const verifyToken = (token: string): { id: string } | null => {
   }
 };
 
-// Middleware to protect routes in Express-style middleware
-export const protect = async (
-  req: AuthNextApiRequest,
-  res: NextApiResponse,
-  next: () => void
-) => {
-  await connectDB();
-
-  let token: string | undefined;
-
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith("Bearer")
-  ) {
-    try {
-      // Get token from header
-      token = req.headers.authorization.split(" ")[1];
-
-      // Verify token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as {
-        id: string;
-      };
-
-      // Get user from database (exclude password)
-      const user = await User.findById(decoded.id).select("-password");
-
-      // Check if user exists
-      if (!user) {
-        res.status(401).json({ message: "User not found" });
-        return;
-      }
-
-      // Set user in request
-      req.user = user;
-
-      next();
-    } catch (error) {
-      console.error("Authentication error:", error);
-      res.status(401).json({ message: "Not authorized" });
-      return;
-    }
-  } else {
-    res.status(401).json({ message: "Not authorized, no token" });
-    return;
-  }
-};
-
-// Middleware to protect Next.js API routes
-export const withProtect = (
-  handler: (req: AuthNextApiRequest, res: NextApiResponse) => Promise<void>,
-  optional: boolean = false
-) => {
+// Middleware to protect routes
+export function withProtect(
+  handler: (req: AuthNextApiRequest, res: NextApiResponse) => Promise<void>
+) {
   return async (req: AuthNextApiRequest, res: NextApiResponse) => {
     try {
-      // Connect to MongoDB first
-      await connectDB();
+      // Check for session
+      const session = await getSession({ req });
 
-      // Check if the request has an authorization header with a Bearer token
-      if (
-        !req.headers.authorization ||
-        !req.headers.authorization.startsWith("Bearer")
-      ) {
-        console.log("No authorization token provided");
-
-        // If auth is optional, proceed without user
-        if (optional) {
-          return handler(req, res);
-        }
-
-        return res.status(401).json({
-          success: false,
-          message: "Not authorized, no token",
-        });
+      if (!session) {
+        return res.status(401).json({ message: "Unauthorized" });
       }
 
-      // Extract the token
-      const token = req.headers.authorization.split(" ")[1];
-      console.log("Token received, verifying");
+      // Add user to request
+      req.user = { _id: session.user.id };
 
-      // Verify the token
-      const decoded = verifyToken(token);
-      if (!decoded) {
-        console.error("Token verification failed");
-
-        // If auth is optional, proceed without user
-        if (optional) {
-          return handler(req, res);
-        }
-
-        return res.status(401).json({
-          success: false,
-          message: "Not authorized, token verification failed",
-        });
-      }
-
-      // Get user from the token
-      console.log(`Looking up user with ID: ${decoded.id}`);
-      const user = await User.findById(decoded.id).select("-password");
-
-      // Check if user exists
-      if (!user) {
-        console.error(`User not found for token with ID: ${decoded.id}`);
-
-        // If auth is optional, proceed without user
-        if (optional) {
-          return handler(req, res);
-        }
-
-        return res.status(401).json({
-          success: false,
-          message: "User not found",
-        });
-      }
-
-      // Attach user to request
-      req.user = user;
-
-      // Call the handler
+      // Call the original handler
       return handler(req, res);
     } catch (error) {
-      // Check for MongoDB timeout errors
-      if (
-        error instanceof Error &&
-        error.name === "MongooseError" &&
-        error.message.includes("timed out")
-      ) {
-        console.error("MongoDB operation timed out:", error);
-        return res.status(503).json({
-          success: false,
-          message: "Database operation timed out. Please try again.",
-        });
-      }
-
-      console.error("Error in authentication middleware:", error);
-      return res.status(500).json({
-        success: false,
-        message: "Server error during authentication",
-      });
+      console.error("Auth error:", error);
+      return res.status(500).json({ message: "Internal server error" });
     }
   };
-};
+}

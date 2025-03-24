@@ -1,235 +1,269 @@
-import Head from "next/head";
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import {
+  closestCenter,
+  DndContext,
+  DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { Box, Container, LinearProgress, Typography } from "@mui/material";
+import { useSession } from "next-auth/react";
+import { useEffect, useState } from "react";
 import ProtectedRoute from "../../src/components/ProtectedRoute";
 import SearchBar from "../../src/components/SearchBar";
-import { recipeAPI } from "../../src/services/api";
-import { Recipe as ImportedRecipe } from "../../src/types/recipe";
-import RecipeCard, { favoritesUpdated } from "../components/RecipeCard";
+import RecipeCard from "../components/RecipeCard";
+import { Recipe } from "./interfaces";
 
-// Local recipe type with required _id
-interface Recipe extends Omit<ImportedRecipe, "_id"> {
-  _id: string;
-}
-
-// Response type for getRecipes endpoint
-interface RecipesResponse {
-  recipes: Recipe[];
-  totalPages?: number;
-  currentPage?: number;
-}
-
-const FavoritesPage = () => {
+export function FavoritesPage() {
+  const { data: session, status } = useSession();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
-  const fetchFavoriteRecipes = async () => {
-    try {
-      setLoading(true);
-      const data = await recipeAPI.getFavoriteRecipes();
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
-      // Handle array or object response
-      let recipesData: Recipe[] = [];
-      if (Array.isArray(data)) {
-        recipesData = data as Recipe[];
-      } else {
-        // Data is an object, but we expect an array directly
-        // This is a fallback in case the API response format changes
-        recipesData = [];
+  useEffect(() => {
+    async function fetchFavoriteRecipes() {
+      if (status === "loading") return;
+      if (!session) {
+        setLoading(false);
+        return;
       }
 
-      // Ensure all recipes have isFavorite property (even if false)
-      const processedRecipes = recipesData.map((recipe) => ({
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Fetch favorite recipes
+        const recipesResponse = await fetch("/api/recipes/user/favorites");
+        if (!recipesResponse.ok) {
+          throw new Error(
+            `Error fetching favorites: ${recipesResponse.statusText}`
+          );
+        }
+        const recipesData = await recipesResponse.json();
+        const fetchedRecipes: Recipe[] = Array.isArray(recipesData)
+          ? recipesData
+          : [];
+
+        // Fetch user recipe orders
+        const ordersResponse = await fetch(
+          "/api/recipes/get-user-recipe-orders?recipeType=favorite"
+        );
+        if (!ordersResponse.ok) {
+          throw new Error(
+            `Error fetching recipe orders: ${ordersResponse.statusText}`
+          );
+        }
+        const ordersData = await ordersResponse.json();
+        const userRecipeOrders = ordersData.userRecipeOrders || {};
+
+        // Assign orders to recipes
+        const recipesWithOrders = fetchedRecipes.map((recipe) => ({
+          ...recipe,
+          userRecipeOrder: userRecipeOrders[recipe._id]?.order,
+        }));
+
+        // Sort recipes by user order, then by recipe order, then by index, and finally by creation date
+        const sortedRecipes = [...recipesWithOrders].sort((a, b) => {
+          // First by user recipe order (if available)
+          if (
+            a.userRecipeOrder !== undefined &&
+            b.userRecipeOrder !== undefined
+          ) {
+            return a.userRecipeOrder - b.userRecipeOrder;
+          }
+          if (a.userRecipeOrder !== undefined) return -1;
+          if (b.userRecipeOrder !== undefined) return 1;
+
+          // Then by recipe order (if available)
+          if (a.recipeOrder !== undefined && b.recipeOrder !== undefined) {
+            return a.recipeOrder - b.recipeOrder;
+          }
+          if (a.recipeOrder !== undefined) return -1;
+          if (b.recipeOrder !== undefined) return 1;
+
+          // Then by index (if available)
+          if (a.index !== undefined && b.index !== undefined) {
+            return a.index - b.index;
+          }
+          if (a.index !== undefined) return -1;
+          if (b.index !== undefined) return 1;
+
+          // Finally by creation date (newest first)
+          return (
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+        });
+
+        setRecipes(sortedRecipes);
+      } catch (err) {
+        console.error("Error fetching favorites:", err);
+        setError(
+          err instanceof Error
+            ? err.message
+            : "An error occurred fetching favorites"
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchFavoriteRecipes();
+  }, [session, status]);
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      // Find the indexes of the items
+      const oldIndex = recipes.findIndex((recipe) => recipe._id === active.id);
+      const newIndex = recipes.findIndex((recipe) => recipe._id === over.id);
+
+      if (oldIndex === -1 || newIndex === -1) return;
+
+      // Create a new array with the updated order
+      const newRecipes = [...recipes];
+      const [movedRecipe] = newRecipes.splice(oldIndex, 1);
+      newRecipes.splice(newIndex, 0, movedRecipe);
+
+      // Update the userRecipeOrder values
+      const updatedRecipes = newRecipes.map((recipe, index) => ({
         ...recipe,
-        isFavorite: true,
+        userRecipeOrder: index,
       }));
 
-      setRecipes(processedRecipes);
-      setError(null); // Clear any existing errors
-    } catch (err) {
-      console.error("Failed to fetch favorite recipes:", err);
-      // Only set error state if the component is still mounted and visible
-      setError("Failed to load your favorites. Please try again later.");
-    } finally {
-      setLoading(false);
-    }
-  };
+      // Update the state
+      setRecipes(updatedRecipes);
 
-  useEffect(() => {
-    fetchFavoriteRecipes();
-  }, []);
+      try {
+        // Send the updated order to the server
+        const updates = updatedRecipes.map((recipe, index) => ({
+          recipeId: recipe._id,
+          order: index,
+          isFavorite: true,
+          recipeType: "favorite",
+        }));
 
-  // Filter recipes based on search query
-  const filteredRecipes = useMemo(() => {
-    if (!searchQuery) return recipes;
-
-    const query = searchQuery.toLowerCase();
-    return recipes.filter(
-      (recipe) =>
-        recipe.title.toLowerCase().includes(query) ||
-        recipe.description.toLowerCase().includes(query)
-    );
-  }, [recipes, searchQuery]);
-
-  // Listen for favorites changes
-  useEffect(() => {
-    let mounted = true;
-
-    const handleFavoritesChange = (e: Event) => {
-      if (!mounted) return;
-
-      if (e instanceof CustomEvent && e.detail) {
-        const { recipeId, isFavorite } = e.detail;
-
-        // If a recipe was unfavorited, just remove it from the local state
-        if (!isFavorite) {
-          setRecipes((prev) =>
-            prev.filter((recipe) => recipe._id !== recipeId)
-          );
-          return;
-        }
-
-        // Only fetch if we need fresh data
-        fetchFavoriteRecipes().catch((err) => {
-          console.error("Error refreshing favorites:", err);
+        const response = await fetch("/api/recipes/update-user-recipe-orders", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ updates }),
         });
+
+        if (!response.ok) {
+          throw new Error(
+            `Error updating recipe order: ${response.statusText}`
+          );
+        }
+      } catch (err) {
+        console.error("Error updating recipe order:", err);
       }
-    };
-
-    favoritesUpdated.addEventListener(
-      "favoritesChanged",
-      handleFavoritesChange
-    );
-
-    return () => {
-      mounted = false;
-      favoritesUpdated.removeEventListener(
-        "favoritesChanged",
-        handleFavoritesChange
-      );
-    };
-  }, []);
-
-  const handleRemoveFromFavorites = async (recipeId: string) => {
-    try {
-      await recipeAPI.removeFromFavorites(recipeId);
-      setRecipes(recipes.filter((recipe) => recipe._id !== recipeId));
-    } catch (err) {
-      console.error("Failed to remove from favorites:", err);
-      alert("Failed to remove from favorites. Please try again.");
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
+  const filteredRecipes = recipes.filter(
+    (recipe) =>
+      recipe.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      recipe.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
-    <div className="bg-gray-50 min-h-screen">
-      <Head>
-        <title>My Favorites | Simple Recipes</title>
-        <meta
-          name="description"
-          content="View and manage your favorite recipes"
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Typography variant="h4" component="h1" gutterBottom>
+        My Favorite Recipes
+      </Typography>
+
+      {/* Search bar */}
+      <Box sx={{ mb: 3 }}>
+        <SearchBar
+          placeholder="Search favorites..."
+          initialValue={searchQuery}
+          onSearch={(query: string) => setSearchQuery(query)}
         />
-      </Head>
+      </Box>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800">My Favorites</h1>
-            <p className="text-gray-600 mt-1">
-              Your collection of favorite recipes
-            </p>
-          </div>
+      {/* Loading indicator */}
+      {loading && <LinearProgress sx={{ mb: 2 }} />}
 
-          <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-            <SearchBar
-              onSearch={setSearchQuery}
-              className="w-full sm:w-64 lg:w-80"
-            />
+      {/* Error message */}
+      {error && (
+        <Typography color="error" sx={{ mb: 2 }}>
+          {error}
+        </Typography>
+      )}
 
-            <Link
-              href="/recipes"
-              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors flex items-center justify-center"
+      {/* No favorites message */}
+      {!loading && !error && filteredRecipes.length === 0 && (
+        <Typography>
+          {searchQuery
+            ? "No favorites found matching your search."
+            : "You don't have any favorite recipes yet."}
+        </Typography>
+      )}
+
+      {/* Favorites list with drag-and-drop */}
+      {!loading && filteredRecipes.length > 0 && (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={filteredRecipes.map((recipe) => recipe._id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <Box
+              sx={{
+                display: "grid",
+                gap: 2,
+                gridTemplateColumns: {
+                  xs: "1fr",
+                  sm: "1fr 1fr",
+                  md: "1fr 1fr 1fr",
+                },
+              }}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 mr-1"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-10.293a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L9.414 11H13a1 1 0 100-2H9.414l1.293-1.293z"
-                  clipRule="evenodd"
+              {filteredRecipes.map((recipe) => (
+                <RecipeCard
+                  key={recipe._id}
+                  recipe={{
+                    _id: recipe._id,
+                    title: recipe.title,
+                    description: recipe.description,
+                    imageUrl: recipe.imageUrl,
+                    cookingTime: recipe.cookingTime,
+                    isFavorite: true,
+                  }}
+                  isDraggable={true}
                 />
-              </svg>
-              Browse All Recipes
-            </Link>
-          </div>
-        </div>
-
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
-            {error}
-          </div>
-        )}
-
-        {filteredRecipes.length === 0 ? (
-          <div className="bg-white p-8 rounded-lg shadow-md text-center">
-            {searchQuery ? (
-              <>
-                <h2 className="text-xl font-semibold mb-2">No matches found</h2>
-                <p className="text-gray-600">
-                  No favorites match your search "{searchQuery}". Try a
-                  different search term.
-                </p>
-              </>
-            ) : (
-              <>
-                <h2 className="text-xl font-semibold mb-2">No favorites yet</h2>
-                <p className="text-gray-600">
-                  Browse recipes and click the heart icon to add them to your
-                  favorites!
-                </p>
-                <Link
-                  href="/recipes"
-                  className="mt-4 inline-block px-4 py-2 bg-indigo-100 text-indigo-600 rounded-md hover:bg-indigo-200 transition-colors"
-                >
-                  Browse Recipes
-                </Link>
-              </>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredRecipes.map((recipe) => (
-              <RecipeCard
-                key={recipe._id}
-                recipe={recipe}
-                onDelete={handleRemoveFromFavorites}
-                isEditable={false}
-              />
-            ))}
-          </div>
-        )}
-      </main>
-    </div>
+              ))}
+            </Box>
+          </SortableContext>
+        </DndContext>
+      )}
+    </Container>
   );
-};
+}
 
-// Wrap the page with ProtectedRoute to require authentication
-const WrappedFavoritesPage = () => (
-  <ProtectedRoute>
-    <FavoritesPage />
-  </ProtectedRoute>
-);
-
-export default WrappedFavoritesPage;
+export default function ProtectedFavoritesPage() {
+  return (
+    <ProtectedRoute>
+      <FavoritesPage />
+    </ProtectedRoute>
+  );
+}

@@ -1,13 +1,89 @@
 import mongoose, { Schema } from "mongoose";
 import { IngredientType, InstructionItem } from "../../../src/types/recipe";
-import dbConnect from "../utils/dbConnect";
+import { connectDB } from "../../utils/database";
+
+// Interface for Recipe document
+export interface RecipeDocument extends mongoose.Document {
+  title: string;
+  description: string;
+  image?: string;
+  ingredients: string[];
+  cookingTime: number;
+  steps: string[];
+  user: mongoose.Types.ObjectId;
+  recipeOrder?: number;
+  index?: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Get Recipe model (creates if doesn't exist)
+export function getRecipeModel(): mongoose.Model<RecipeDocument> {
+  try {
+    return mongoose.model<RecipeDocument>("Recipe");
+  } catch (error) {
+    // Define schema if model doesn't exist yet
+    const RecipeSchema = new Schema<RecipeDocument>(
+      {
+        title: {
+          type: String,
+          required: [true, "Please add a title"],
+          trim: true,
+          maxlength: [100, "Title cannot be more than 100 characters"],
+        },
+        description: {
+          type: String,
+          required: [true, "Please add a description"],
+          trim: true,
+          maxlength: [500, "Description cannot be more than 500 characters"],
+        },
+        image: {
+          type: String,
+        },
+        ingredients: {
+          type: [String],
+          required: [true, "Please add ingredients"],
+        },
+        cookingTime: {
+          type: Number,
+          required: [true, "Please add cooking time"],
+        },
+        steps: {
+          type: [String],
+          required: [true, "Please add steps"],
+        },
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
+        recipeOrder: {
+          type: Number,
+        },
+        index: {
+          type: Number,
+        },
+      },
+      {
+        timestamps: true,
+      }
+    );
+
+    return mongoose.model<RecipeDocument>("Recipe", RecipeSchema);
+  }
+}
+
+// Get Recipe model with DB connection
+export async function getRecipeModelWithDB(): Promise<
+  mongoose.Model<RecipeDocument>
+> {
+  await connectDB();
+  return getRecipeModel();
+}
 
 // Use 'as any' for the imported types to avoid TypeScript errors
 type IRecipeDocument = any;
 type IRecipeModel = any;
-
-// Connect to the database before defining the model
-dbConnect();
 
 // Create a recipe schema
 const RecipeSchema = new Schema<IRecipeDocument>(
@@ -75,6 +151,10 @@ const RecipeSchema = new Schema<IRecipeDocument>(
       required: false,
     },
     index: {
+      type: Number,
+      default: 0, // Default to 0 for existing recipes
+    },
+    recipeOrder: {
       type: Number,
       default: 0, // Default to 0 for existing recipes
     },

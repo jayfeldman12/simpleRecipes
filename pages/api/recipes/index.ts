@@ -210,10 +210,7 @@ export default async function handler(
     // Route handlers based on HTTP method
     if (req.method === "GET") {
       // GET is a public route, but we'll pass auth info if available
-      return withProtect(getRecipes as any, true)(
-        req as AuthNextApiRequest,
-        res
-      );
+      return withProtect(getRecipes as any)(req as AuthNextApiRequest, res);
     } else if (req.method === "POST") {
       // POST requires authentication
       return withProtect(createRecipe as any)(req as AuthNextApiRequest, res);

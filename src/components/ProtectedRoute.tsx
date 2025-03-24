@@ -1,20 +1,21 @@
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
 import { useEffect } from "react";
-import { useAuth } from "../context/AuthContext";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { user, loading } = useAuth();
+  const { data: session, status } = useSession();
+  const loading = status === "loading";
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push("/recipes");
+    if (!loading && !session) {
+      router.push("/login");
     }
-  }, [user, loading, router]);
+  }, [session, loading, router]);
 
   // Show loading state while checking authentication
   if (loading) {
@@ -26,7 +27,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   }
 
   // Only render children if user is authenticated
-  return user ? <>{children}</> : null;
+  return session ? <>{children}</> : null;
 };
 
 export default ProtectedRoute;

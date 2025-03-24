@@ -1,9 +1,9 @@
+import { useSession } from "next-auth/react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import SearchBar from "../../src/components/SearchBar";
-import { useAuth } from "../../src/context/AuthContext";
 import { recipeAPI } from "../../src/services/api";
 import { Recipe as ImportedRecipe } from "../../src/types/recipe";
 import RecipeCard, { favoritesUpdated } from "../components/RecipeCard";
@@ -20,7 +20,8 @@ export default function RecipeList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const { user } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
 
   const fetchRecipes = async () => {
     try {
