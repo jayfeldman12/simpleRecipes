@@ -161,10 +161,10 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
   };
 
   const cardContent = (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200">
+    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200 flex flex-col h-full">
       {isDraggable ? (
         // If draggable, don't use Link to prevent accidental navigation during drag
-        <div className="block">
+        <div className="block flex-grow">
           <div className="relative h-48">
             <Image
               src={imgSrc}
@@ -247,11 +247,11 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
               </button>
             )}
           </div>
-          <div className="p-4">
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">
+          <div className="p-4 flex-grow flex flex-col">
+            <h3 className="text-lg font-semibold text-gray-800 mb-2 line-clamp-1">
               {recipe?.title || "Untitled Recipe"}
             </h3>
-            <p className="text-gray-600 text-sm line-clamp-2">
+            <p className="text-gray-600 text-sm line-clamp-2 flex-grow">
               {recipe?.description || "No description available"}
             </p>
           </div>
@@ -263,7 +263,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
               ? `/recipes/${recipe._id}?from=${encodeURIComponent(fromParam)}`
               : "#"
           }
-          className="block"
+          className="block flex-grow"
         >
           <div className="relative h-48">
             <Image
@@ -347,11 +347,11 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
               </button>
             )}
           </div>
-          <div className="p-4">
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">
+          <div className="p-4 flex-grow flex flex-col">
+            <h3 className="text-lg font-semibold text-gray-800 mb-2 line-clamp-1">
               {recipe?.title || "Untitled Recipe"}
             </h3>
-            <p className="text-gray-600 text-sm line-clamp-2">
+            <p className="text-gray-600 text-sm line-clamp-2 flex-grow">
               {recipe?.description || "No description available"}
             </p>
           </div>
