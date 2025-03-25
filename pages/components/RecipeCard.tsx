@@ -45,6 +45,11 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
   // Safe default for image
   const [imgSrc, setImgSrc] = useState<string>("/images/default-recipe.jpg");
 
+  // Defensive check for undefined recipe during prerendering
+  if (!recipe || !recipe._id) {
+    return null;
+  }
+
   // Setup drag and drop with dnd-kit
   const {
     attributes,
@@ -54,7 +59,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
     transition,
     isDragging,
   } = useSortable({
-    id: recipe._id || "",
+    id: recipe._id,
     disabled: !isDraggable,
   });
 
