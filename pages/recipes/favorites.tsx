@@ -1,3 +1,18 @@
+import {
+  closestCenter,
+  DndContext,
+  DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  rectSortingStrategy,
+  SortableContext,
+  sortableKeyboardCoordinates,
+} from "@dnd-kit/sortable";
 import Head from "next/head";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -5,12 +20,12 @@ import ProtectedRoute from "../../src/components/ProtectedRoute";
 import SearchBar from "../../src/components/SearchBar";
 import { recipeAPI } from "../../src/services/api";
 import { Recipe as ImportedRecipe } from "../../src/types/recipe";
-import MigrateFavorites from "../components/MigrateFavorites";
 import RecipeCard, { favoritesUpdated } from "../components/RecipeCard";
 
 // Local recipe type with required _id
 interface Recipe extends Omit<ImportedRecipe, "_id"> {
   _id: string;
+  order?: number;
 }
 
 // Response type for getRecipes endpoint
@@ -25,6 +40,18 @@ const FavoritesPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Set up dnd-kit sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const fetchFavoriteRecipes = async () => {
     try {
@@ -41,13 +68,22 @@ const FavoritesPage = () => {
         recipesData = [];
       }
 
-      // Ensure all recipes have isFavorite property (even if false)
-      const processedRecipes = recipesData.map((recipe) => ({
+      // Ensure all recipes have isFavorite property and order property
+      const processedRecipes = recipesData.map((recipe, index) => ({
         ...recipe,
         isFavorite: true,
+        order: typeof recipe.order === "number" ? recipe.order : index,
       }));
 
-      setRecipes(processedRecipes);
+      // Sort recipes by order
+      const sortedRecipes = processedRecipes.sort((a, b) => {
+        return (
+          (typeof a.order === "number" ? a.order : Number.MAX_SAFE_INTEGER) -
+          (typeof b.order === "number" ? b.order : Number.MAX_SAFE_INTEGER)
+        );
+      });
+
+      setRecipes(sortedRecipes);
       setError(null); // Clear any existing errors
     } catch (err) {
       console.error("Failed to fetch favorite recipes:", err);
@@ -73,6 +109,66 @@ const FavoritesPage = () => {
         recipe.description.toLowerCase().includes(query)
     );
   }, [recipes, searchQuery]);
+
+  // Get IDs for sortable context
+  const recipeIds = useMemo(() => {
+    return filteredRecipes.map((recipe) => recipe._id);
+  }, [filteredRecipes]);
+
+  // Handle drag end event
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over) return;
+
+    // Make sure we have valid IDs and they're different
+    if (active.id === over.id) return;
+
+    // Find the indices of the dragged items
+    const oldIndex = filteredRecipes.findIndex(
+      (recipe) => recipe._id === active.id
+    );
+    const newIndex = filteredRecipes.findIndex(
+      (recipe) => recipe._id === over.id
+    );
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    // Create a new array with the element moved to the new position
+    const newRecipes = arrayMove(recipes, oldIndex, newIndex);
+
+    // Update the order property for all affected recipes starting from the lowest affected index
+    const startIdx = Math.min(oldIndex, newIndex);
+    const endIdx = Math.max(oldIndex, newIndex);
+
+    // Create a batch update for all recipes that need their order changed
+    const recipeUpdates = newRecipes
+      .map((recipe, idx) => ({
+        recipeId: recipe._id,
+        order: idx,
+        isFavorite: true,
+      }))
+      .filter((_, idx) => idx >= startIdx && idx <= endIdx);
+
+    // Update the state immediately for smooth UI
+    setRecipes(
+      newRecipes.map((recipe, index) => ({
+        ...recipe,
+        order: index,
+      }))
+    );
+
+    try {
+      // Batch update the orders in the database
+      await recipeAPI.batchUpdateRecipeOrders(recipeUpdates);
+    } catch (error) {
+      console.error("Error updating recipe orders:", error);
+      // Only revert the order if there's a valid error (network errors will be handled silently)
+      if (error instanceof Error && error.message !== "NetworkError") {
+        setRecipes(recipes);
+      }
+    }
+  };
 
   // Listen for favorites changes
   useEffect(() => {
@@ -196,10 +292,6 @@ const FavoritesPage = () => {
           </div>
         </div>
 
-        <div className="mb-6">
-          <MigrateFavorites />
-        </div>
-
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
             {error}
@@ -233,16 +325,25 @@ const FavoritesPage = () => {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredRecipes.map((recipe) => (
-              <RecipeCard
-                key={recipe._id}
-                recipe={recipe}
-                onDelete={handleRemoveFromFavorites}
-                isEditable={false}
-              />
-            ))}
-          </div>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={recipeIds} strategy={rectSortingStrategy}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredRecipes.map((recipe) => (
+                  <RecipeCard
+                    key={recipe._id}
+                    recipe={recipe}
+                    onDelete={handleRemoveFromFavorites}
+                    isEditable={false}
+                    isDraggable={true}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         )}
       </main>
     </div>
