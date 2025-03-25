@@ -128,14 +128,10 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
       // Update UI state immediately for responsive feel
       setIsFavorite(newStatus);
 
-      console.log(`Toggling favorite for recipe ${recipe._id} to ${newStatus}`);
-
       // Always use the new API for updating favorites
       await recipeAPI.updateUserRecipeOrder(recipe._id, {
         isFavorite: newStatus,
       });
-
-      console.log(`Successfully updated favorite status to ${newStatus}`);
 
       // Dispatch custom event
       const customEvent = new CustomEvent("favoritesChanged", {

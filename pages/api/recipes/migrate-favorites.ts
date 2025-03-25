@@ -49,7 +49,6 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
 
     // Convert legacy favorites to strings for comparison
     const legacyFavoriteIds = user.favorites.map((id: any) => id.toString());
-    console.log(`Found ${legacyFavoriteIds.length} legacy favorites`);
 
     // Count of migrated favorites
     let migratedCount = 0;

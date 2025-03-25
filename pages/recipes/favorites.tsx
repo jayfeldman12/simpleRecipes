@@ -179,9 +179,6 @@ const FavoritesPage = () => {
 
       if (e instanceof CustomEvent && e.detail) {
         const { recipeId, isFavorite } = e.detail;
-        console.log(
-          `Favorites page received favorite change: ${recipeId} - ${isFavorite}`
-        );
 
         // If a recipe was unfavorited, just remove it from the local state
         if (!isFavorite) {
@@ -228,10 +225,6 @@ const FavoritesPage = () => {
         detail: { recipeId, isFavorite: false },
       });
       window.dispatchEvent(event);
-
-      console.log(
-        `Removed recipe ${recipeId} from favorites via handleRemoveFromFavorites`
-      );
     } catch (err) {
       console.error("Failed to remove from favorites:", err);
       alert("Failed to remove from favorites. Please try again.");

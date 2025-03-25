@@ -66,16 +66,6 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
       (a: { order: number }, b: { order: number }) => a.order - b.order
     );
 
-    console.log(
-      "Favorites after sorting:",
-      sortedRecipes.slice(0, 5).map((r: any) => ({
-        id: r._id.toString(),
-        title: r.title,
-        order: r.order,
-        isFavorite: r.isFavorite,
-      }))
-    );
-
     return res.status(200).json(sortedRecipes);
   } catch (error) {
     console.error("Error fetching favorite recipes:", error);

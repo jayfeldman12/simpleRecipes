@@ -72,16 +72,6 @@ const MyRecipesPage = () => {
           return;
         }
 
-        console.log(
-          "My Recipes from API:",
-          recipesArray.map((r: Recipe) => ({
-            id: r._id,
-            title: r.title,
-            order: r.order,
-            isFavorite: r.isFavorite,
-          }))
-        );
-
         // Explicitly convert isFavorite to boolean and ensure order is a number
         const processed = recipesArray.map((recipe: Recipe, index: number) => ({
           ...recipe,
@@ -97,16 +87,6 @@ const MyRecipesPage = () => {
             (typeof b.order === "number" ? b.order : Number.MAX_SAFE_INTEGER)
           );
         });
-
-        console.log(
-          "Sorted my recipes client-side:",
-          sortedRecipes.map((r: Recipe) => ({
-            id: r._id,
-            title: r.title,
-            order: r.order,
-            isFavorite: r.isFavorite,
-          }))
-        );
 
         setRecipes(sortedRecipes);
       } catch (err) {
@@ -142,9 +122,6 @@ const MyRecipesPage = () => {
     const handleFavoritesChange = (e: Event) => {
       if (e instanceof CustomEvent && e.detail) {
         const { recipeId, isFavorite } = e.detail;
-        console.log(
-          `My recipes: received favorites update for ${recipeId}: ${isFavorite}`
-        );
 
         // Update the isFavorite status for this recipe in our state
         setRecipes((prevRecipes) => {
