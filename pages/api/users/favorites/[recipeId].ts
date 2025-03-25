@@ -1,5 +1,5 @@
-import mongoose, { Types } from "mongoose";
 import { NextApiResponse } from "next";
+import { UserRecipeOrderModel } from "../../models/UserRecipeOrder";
 import { AuthNextApiRequest, connectDB, withProtect } from "../../utils/auth";
 
 // @desc    Add or remove recipe from favorites
@@ -19,55 +19,81 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
       return res.status(401).json({ message: "Not authorized" });
     }
 
-    // Import User model dynamically to avoid circular dependencies
-    const User = (await import("../../models/User")).default;
-
     const { recipeId } = req.query;
-    const user = await User.findById(req.user._id);
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
+    const userId = req.user._id.toString();
 
     // POST - Add to favorites
     if (req.method === "POST") {
-      // Check if recipe is already in favorites
-      if (
-        user.favorites.some((id: Types.ObjectId) => id.toString() === recipeId)
-      ) {
-        return res.status(400).json({ message: "Recipe already in favorites" });
+      // Check if recipe order entry exists
+      let recipeOrder = await UserRecipeOrderModel.findOne({
+        userId,
+        recipeId: recipeId as string,
+      });
+
+      if (recipeOrder) {
+        // Update existing entry
+        if (recipeOrder.isFavorite) {
+          return res
+            .status(400)
+            .json({ message: "Recipe already in favorites" });
+        }
+
+        recipeOrder.isFavorite = true;
+        await recipeOrder.save();
+      } else {
+        // Create new entry
+        // Get max existing order to place this at the end
+        const maxOrderRecord = await UserRecipeOrderModel.findOne({
+          userId,
+        }).sort({ order: -1 });
+
+        const nextOrder = maxOrderRecord ? maxOrderRecord.order + 1 : 0;
+
+        recipeOrder = await UserRecipeOrderModel.create({
+          userId,
+          recipeId: recipeId as string,
+          isFavorite: true,
+          order: nextOrder,
+        });
       }
 
-      user.favorites.push(new mongoose.Types.ObjectId(recipeId as string));
-      await user.save();
+      console.log(
+        `Added recipe ${recipeId} to favorites with order ${recipeOrder.order}`
+      );
 
       return res.status(200).json({
         message: "Recipe added to favorites",
-        favorites: user.favorites,
+        order: recipeOrder.order,
+        isFavorite: recipeOrder.isFavorite,
       });
     }
 
     // DELETE - Remove from favorites
     if (req.method === "DELETE") {
-      // Check if recipe is in favorites
-      if (
-        !user.favorites.some((id: Types.ObjectId) => id.toString() === recipeId)
-      ) {
+      // Find the recipe order entry
+      const recipeOrder = await UserRecipeOrderModel.findOne({
+        userId,
+        recipeId: recipeId as string,
+      });
+
+      if (!recipeOrder || !recipeOrder.isFavorite) {
         return res.status(400).json({ message: "Recipe not in favorites" });
       }
 
-      user.favorites = user.favorites.filter(
-        (id: Types.ObjectId) => id.toString() !== recipeId
-      );
-      await user.save();
+      // Update the entry to mark as unfavorited
+      recipeOrder.isFavorite = false;
+      await recipeOrder.save();
+
+      console.log(`Removed recipe ${recipeId} from favorites`);
 
       return res.status(200).json({
         message: "Recipe removed from favorites",
-        favorites: user.favorites,
+        order: recipeOrder.order,
+        isFavorite: recipeOrder.isFavorite,
       });
     }
   } catch (error) {
-    console.error(error);
+    console.error("Error updating favorites:", error);
     return res.status(500).json({ message: "Server error" });
   }
 }

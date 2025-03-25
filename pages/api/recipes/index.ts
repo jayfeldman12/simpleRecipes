@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import Recipe from "../models/Recipe";
+import { UserRecipeOrderModel } from "../models/UserRecipeOrder";
 import { AuthNextApiRequest, connectDB, withProtect } from "../utils/auth";
 import { processImageUrl } from "../utils/awsS3";
 
@@ -34,8 +35,8 @@ async function getRecipes(
     // Execute query
     const recipes = await recipesQuery.populate("user", "username");
 
-    // If user is authenticated, check which recipes are in their favorites
-    let recipesWithFavorites = recipes;
+    // If user is authenticated, check which recipes are in their favorites and get order info
+    let recipesWithUserData = recipes;
 
     if ("user" in req && req.user) {
       // Import User model dynamically to avoid circular dependencies
@@ -50,38 +51,44 @@ async function getRecipes(
           user.favorites.map((id: any) => id.toString())
         );
 
-        // Create a new array with the isFavorite flag added
-        const recipeObjects = recipes.map((recipe: any) => {
-          // Convert Mongoose document to plain object
-          const recipeObj = recipe.toJSON();
-          const recipeId = recipe._id ? recipe._id.toString() : "";
+        // Fetch recipe ordering information
+        const recipeOrders = await UserRecipeOrderModel.find({
+          userId: req.user._id.toString(),
+          recipeId: { $in: recipes.map((r: any) => r._id.toString()) },
+        });
 
-          // Check if this recipe is in the user's favorites
-          const isFavorite = favoritesSet.has(recipeId);
+        // Create a map of recipeId -> order & favorite information
+        const orderMap = new Map();
+        recipeOrders.forEach((order) => {
+          orderMap.set(order.recipeId, {
+            order: order.order,
+            isFavorite: order.isFavorite,
+          });
+        });
 
-          // Add isFavorite flag
+        // Add user-specific data to each recipe
+        recipesWithUserData = recipes.map((recipe: any) => {
+          const userData = orderMap.get(recipe._id.toString()) || {
+            isFavorite: false,
+            order: Number.MAX_SAFE_INTEGER,
+          };
+
           return {
-            ...recipeObj,
-            isFavorite: isFavorite,
+            ...recipe.toObject(),
+            isFavorite: userData.isFavorite,
+            order: userData.order,
           };
         });
 
-        // Log the entire response for debugging
-        console.log(
-          "Response with favorites:",
-          recipeObjects.map((r: any) => ({
-            id: r._id,
-            title: r.title,
-            isFavorite: r.isFavorite,
-          }))
+        // Sort recipes by order only
+        const sortedRecipes = recipesWithUserData.sort(
+          (a: { order: number }, b: { order: number }) => a.order - b.order
         );
 
-        // Return the new array with the isFavorite flag
         return res.status(200).json({
-          recipes: recipeObjects,
-          page,
-          pages: totalPages,
-          total,
+          recipes: sortedRecipes,
+          totalPages,
+          currentPage: page,
         });
       }
     }

@@ -1,3 +1,18 @@
+import {
+  closestCenter,
+  DndContext,
+  DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  rectSortingStrategy,
+  SortableContext,
+  sortableKeyboardCoordinates,
+} from "@dnd-kit/sortable";
 import Head from "next/head";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -11,6 +26,8 @@ import RecipeCard, { favoritesUpdated } from "../components/RecipeCard";
 // Local recipe type with required _id
 interface Recipe extends Omit<ImportedRecipe, "_id"> {
   _id: string;
+  isFavorite?: boolean;
+  order?: number;
 }
 
 const MyRecipesPage = () => {
@@ -20,47 +37,87 @@ const MyRecipesPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Set up dnd-kit sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   useEffect(() => {
-    const fetchUserRecipes = async () => {
+    const fetchMyRecipes = async () => {
       try {
-        setLoading(true);
+        // Use the API service which handles auth headers automatically
         const data = await recipeAPI.getUserRecipes();
 
-        // Handle array or object response
-        let recipesData: Recipe[] = [];
+        // Ensure we have an array of recipes
+        let recipesArray: Recipe[] = [];
         if (Array.isArray(data)) {
-          recipesData = data as Recipe[];
+          recipesArray = data as Recipe[];
+        } else if (data && typeof data === "object") {
+          // Safely access data.recipes if it exists
+          const typedData = data as { recipes?: Recipe[] };
+          if (typedData.recipes && Array.isArray(typedData.recipes)) {
+            recipesArray = typedData.recipes;
+          }
         } else {
-          // Data is an object, but we expect an array directly
-          // This is a fallback in case the API response format changes
-          recipesData = [];
+          console.error("Unexpected data format:", data);
+          setRecipes([]);
+          setError("Received invalid data format from server");
+          return;
         }
 
-        // Ensure all recipes have isFavorite property
-        const processedRecipes = recipesData.map((recipe) => ({
+        console.log(
+          "My Recipes from API:",
+          recipesArray.map((r: Recipe) => ({
+            id: r._id,
+            title: r.title,
+            order: r.order,
+            isFavorite: r.isFavorite,
+          }))
+        );
+
+        // Explicitly convert isFavorite to boolean and ensure order is a number
+        const processed = recipesArray.map((recipe: Recipe, index: number) => ({
           ...recipe,
           isFavorite: Boolean(recipe.isFavorite),
-        }));
+          // Ensure order is a number, use index as fallback
+          order: typeof recipe.order === "number" ? recipe.order : index,
+        })) as Recipe[];
 
-        // Sort recipes - favorites first
-        const sortedRecipes = processedRecipes.sort((a: Recipe, b: Recipe) => {
-          // If one is favorite and other is not, favorite comes first
-          if (a.isFavorite && !b.isFavorite) return -1;
-          if (!a.isFavorite && b.isFavorite) return 1;
-          // Otherwise maintain existing order
-          return 0;
+        // Sort recipes by order only
+        const sortedRecipes = processed.sort((a: Recipe, b: Recipe) => {
+          return (
+            (typeof a.order === "number" ? a.order : Number.MAX_SAFE_INTEGER) -
+            (typeof b.order === "number" ? b.order : Number.MAX_SAFE_INTEGER)
+          );
         });
+
+        console.log(
+          "Sorted my recipes client-side:",
+          sortedRecipes.map((r: Recipe) => ({
+            id: r._id,
+            title: r.title,
+            order: r.order,
+            isFavorite: r.isFavorite,
+          }))
+        );
 
         setRecipes(sortedRecipes);
       } catch (err) {
-        console.error("Failed to fetch recipes:", err);
-        setError("Failed to load your recipes. Please try again later.");
+        setError(err instanceof Error ? err.message : "An error occurred");
+        console.error(err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchUserRecipes();
+    fetchMyRecipes();
   }, []);
 
   // Filter recipes based on search query
@@ -75,11 +132,19 @@ const MyRecipesPage = () => {
     );
   }, [recipes, searchQuery]);
 
+  // Get IDs for sortable context
+  const recipeIds = useMemo(() => {
+    return filteredRecipes.map((recipe) => recipe._id);
+  }, [filteredRecipes]);
+
   // Listen for favorites changes
   useEffect(() => {
     const handleFavoritesChange = (e: Event) => {
       if (e instanceof CustomEvent && e.detail) {
         const { recipeId, isFavorite } = e.detail;
+        console.log(
+          `My recipes: received favorites update for ${recipeId}: ${isFavorite}`
+        );
 
         // Update the isFavorite status for this recipe in our state
         setRecipes((prevRecipes) => {
@@ -87,28 +152,87 @@ const MyRecipesPage = () => {
             recipe._id === recipeId ? { ...recipe, isFavorite } : recipe
           );
 
-          // Re-sort the recipes to keep favorites at the top
+          // Re-sort the recipes by order only
           return updatedRecipes.sort((a: Recipe, b: Recipe) => {
-            if (a.isFavorite && !b.isFavorite) return -1;
-            if (!a.isFavorite && b.isFavorite) return 1;
-            return 0;
+            return (
+              (typeof a.order === "number"
+                ? a.order
+                : Number.MAX_SAFE_INTEGER) -
+              (typeof b.order === "number" ? b.order : Number.MAX_SAFE_INTEGER)
+            );
           });
         });
       }
     };
 
+    // Add event listeners for both the custom event target and window
     favoritesUpdated.addEventListener(
       "favoritesChanged",
       handleFavoritesChange
     );
+    window.addEventListener("favoritesUpdated", handleFavoritesChange);
 
     return () => {
       favoritesUpdated.removeEventListener(
         "favoritesChanged",
         handleFavoritesChange
       );
+      window.removeEventListener("favoritesUpdated", handleFavoritesChange);
     };
   }, []);
+
+  // Handle drag end event
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || !user) return;
+
+    // Make sure we have valid IDs and they're different
+    if (active.id === over.id) return;
+
+    // Find the indices of the dragged items
+    const oldIndex = filteredRecipes.findIndex(
+      (recipe) => recipe._id === active.id
+    );
+    const newIndex = filteredRecipes.findIndex(
+      (recipe) => recipe._id === over.id
+    );
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    // Create a new array with the element moved to the new position
+    const newRecipes = arrayMove(recipes, oldIndex, newIndex);
+
+    // Update the order property for all affected recipes starting from the lowest affected index
+    const startIdx = Math.min(oldIndex, newIndex);
+    const endIdx = Math.max(oldIndex, newIndex);
+
+    // Create a batch update for all recipes that need their order changed
+    const recipeUpdates = newRecipes
+      .map((recipe, idx) => ({
+        recipeId: recipe._id,
+        order: idx,
+        isFavorite: recipe.isFavorite,
+      }))
+      .filter((_, idx) => idx >= startIdx && idx <= endIdx);
+
+    // Update the state immediately for smooth UI
+    setRecipes(
+      newRecipes.map((recipe, index) => ({
+        ...recipe,
+        order: index,
+      }))
+    );
+
+    try {
+      // Batch update the orders in the database
+      await recipeAPI.batchUpdateRecipeOrders(recipeUpdates);
+    } catch (error) {
+      console.error("Error updating recipe orders:", error);
+      // Revert to original order on error
+      setRecipes(recipes);
+    }
+  };
 
   const handleDeleteRecipe = async (recipeId: string) => {
     if (!confirm("Are you sure you want to delete this recipe?")) {
@@ -205,16 +329,25 @@ const MyRecipesPage = () => {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredRecipes.map((recipe) => (
-              <RecipeCard
-                key={recipe._id}
-                recipe={recipe}
-                onDelete={handleDeleteRecipe}
-                isEditable={true}
-              />
-            ))}
-          </div>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={recipeIds} strategy={rectSortingStrategy}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredRecipes.map((recipe) => (
+                  <RecipeCard
+                    key={recipe._id}
+                    recipe={recipe}
+                    onDelete={handleDeleteRecipe}
+                    isEditable={true}
+                    isDraggable={true}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         )}
       </main>
     </div>

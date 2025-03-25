@@ -5,6 +5,7 @@ import ProtectedRoute from "../../src/components/ProtectedRoute";
 import SearchBar from "../../src/components/SearchBar";
 import { recipeAPI } from "../../src/services/api";
 import { Recipe as ImportedRecipe } from "../../src/types/recipe";
+import MigrateFavorites from "../components/MigrateFavorites";
 import RecipeCard, { favoritesUpdated } from "../components/RecipeCard";
 
 // Local recipe type with required _id
@@ -82,6 +83,9 @@ const FavoritesPage = () => {
 
       if (e instanceof CustomEvent && e.detail) {
         const { recipeId, isFavorite } = e.detail;
+        console.log(
+          `Favorites page received favorite change: ${recipeId} - ${isFavorite}`
+        );
 
         // If a recipe was unfavorited, just remove it from the local state
         if (!isFavorite) {
@@ -98,10 +102,12 @@ const FavoritesPage = () => {
       }
     };
 
+    // Add event listeners for both the custom event target and window
     favoritesUpdated.addEventListener(
       "favoritesChanged",
       handleFavoritesChange
     );
+    window.addEventListener("favoritesUpdated", handleFavoritesChange);
 
     return () => {
       mounted = false;
@@ -109,13 +115,27 @@ const FavoritesPage = () => {
         "favoritesChanged",
         handleFavoritesChange
       );
+      window.removeEventListener("favoritesUpdated", handleFavoritesChange);
     };
   }, []);
 
   const handleRemoveFromFavorites = async (recipeId: string) => {
     try {
-      await recipeAPI.removeFromFavorites(recipeId);
+      // Use updateUserRecipeOrder instead of the older removeFromFavorites
+      await recipeAPI.updateUserRecipeOrder(recipeId, { isFavorite: false });
+
+      // Remove from local state
       setRecipes(recipes.filter((recipe) => recipe._id !== recipeId));
+
+      // Dispatch events to ensure other components stay in sync
+      const event = new CustomEvent("favoritesUpdated", {
+        detail: { recipeId, isFavorite: false },
+      });
+      window.dispatchEvent(event);
+
+      console.log(
+        `Removed recipe ${recipeId} from favorites via handleRemoveFromFavorites`
+      );
     } catch (err) {
       console.error("Failed to remove from favorites:", err);
       alert("Failed to remove from favorites. Please try again.");
@@ -174,6 +194,10 @@ const FavoritesPage = () => {
               Browse All Recipes
             </Link>
           </div>
+        </div>
+
+        <div className="mb-6">
+          <MigrateFavorites />
         </div>
 
         {error && (

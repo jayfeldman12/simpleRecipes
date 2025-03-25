@@ -1,3 +1,18 @@
+import {
+  closestCenter,
+  DndContext,
+  DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  rectSortingStrategy,
+  SortableContext,
+  sortableKeyboardCoordinates,
+} from "@dnd-kit/sortable";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -12,6 +27,7 @@ import RecipeCard, { favoritesUpdated } from "../components/RecipeCard";
 interface Recipe extends Omit<ImportedRecipe, "_id"> {
   _id: string;
   isFavorite?: boolean;
+  order?: number;
 }
 
 export default function RecipeList() {
@@ -21,6 +37,18 @@ export default function RecipeList() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const { user } = useAuth();
+
+  // Set up dnd-kit sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const fetchRecipes = async () => {
     try {
@@ -40,20 +68,41 @@ export default function RecipeList() {
         return;
       }
 
-      // Explicitly convert isFavorite to boolean
-      const processed = recipesArray.map((recipe) => ({
+      console.log(
+        "Recipes from API:",
+        recipesArray.map((r) => ({
+          id: r._id,
+          title: r.title,
+          order: r.order,
+          isFavorite: r.isFavorite,
+        }))
+      );
+
+      // Explicitly convert isFavorite to boolean and ensure order is a number
+      const processed = recipesArray.map((recipe, index) => ({
         ...recipe,
         isFavorite: Boolean(recipe.isFavorite),
+        // Ensure order is a number, use index as fallback
+        order: typeof recipe.order === "number" ? recipe.order : index,
       })) as Recipe[];
 
-      // Sort recipes - favorites first
+      // Sort recipes by order only
       const sortedRecipes = processed.sort((a: Recipe, b: Recipe) => {
-        // If one is favorite and other is not, favorite comes first
-        if (a.isFavorite && !b.isFavorite) return -1;
-        if (!a.isFavorite && b.isFavorite) return 1;
-        // Otherwise sort by creation date (assuming newer recipes should be shown first)
-        return 0;
+        return (
+          (typeof a.order === "number" ? a.order : Number.MAX_SAFE_INTEGER) -
+          (typeof b.order === "number" ? b.order : Number.MAX_SAFE_INTEGER)
+        );
       });
+
+      console.log(
+        "Sorted recipes client-side:",
+        sortedRecipes.map((r) => ({
+          id: r._id,
+          title: r.title,
+          order: r.order,
+          isFavorite: r.isFavorite,
+        }))
+      );
 
       setRecipes(sortedRecipes);
     } catch (err) {
@@ -70,9 +119,13 @@ export default function RecipeList() {
 
   // Listen for favorite changes and update recipes accordingly
   useEffect(() => {
+    // Handle favorites changed from RecipeCard component
     const handleFavoritesChange = (e: Event) => {
       if (e instanceof CustomEvent && e.detail) {
         const { recipeId, isFavorite } = e.detail;
+        console.log(
+          `Received favorites update event for ${recipeId}: ${isFavorite}`
+        );
 
         // Update the isFavorite status for this recipe in our state
         setRecipes((prevRecipes) => {
@@ -80,26 +133,32 @@ export default function RecipeList() {
             recipe._id === recipeId ? { ...recipe, isFavorite } : recipe
           );
 
-          // Re-sort the recipes to keep favorites at the top
+          // Re-sort the recipes by order only
           return updatedRecipes.sort((a: Recipe, b: Recipe) => {
-            if (a.isFavorite && !b.isFavorite) return -1;
-            if (!a.isFavorite && b.isFavorite) return 1;
-            return 0;
+            return (
+              (typeof a.order === "number"
+                ? a.order
+                : Number.MAX_SAFE_INTEGER) -
+              (typeof b.order === "number" ? b.order : Number.MAX_SAFE_INTEGER)
+            );
           });
         });
       }
     };
 
+    // Add event listeners for both the custom event target and window
     favoritesUpdated.addEventListener(
       "favoritesChanged",
       handleFavoritesChange
     );
+    window.addEventListener("favoritesUpdated", handleFavoritesChange);
 
     return () => {
       favoritesUpdated.removeEventListener(
         "favoritesChanged",
         handleFavoritesChange
       );
+      window.removeEventListener("favoritesUpdated", handleFavoritesChange);
     };
   }, []);
 
@@ -115,12 +174,68 @@ export default function RecipeList() {
     );
   }, [recipes, searchQuery]);
 
+  // Get IDs for sortable context
+  const recipeIds = useMemo(() => {
+    return filteredRecipes.map((recipe) => recipe._id);
+  }, [filteredRecipes]);
+
+  // Handle drag end event
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || !user) return;
+
+    // Make sure we have valid IDs and they're different
+    if (active.id === over.id) return;
+
+    // Find the indices of the dragged items
+    const oldIndex = filteredRecipes.findIndex(
+      (recipe) => recipe._id === active.id
+    );
+    const newIndex = filteredRecipes.findIndex(
+      (recipe) => recipe._id === over.id
+    );
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    // Create a new array with the element moved to the new position
+    const newRecipes = arrayMove(recipes, oldIndex, newIndex);
+
+    // Update the order property for all affected recipes starting from the lowest affected index
+    const startIdx = Math.min(oldIndex, newIndex);
+    const endIdx = Math.max(oldIndex, newIndex);
+
+    // Create a batch update for all recipes that need their order changed
+    const recipeUpdates = newRecipes
+      .map((recipe, idx) => ({
+        recipeId: recipe._id,
+        order: idx,
+        isFavorite: recipe.isFavorite,
+      }))
+      .filter((_, idx) => idx >= startIdx && idx <= endIdx);
+
+    // Update the state immediately for smooth UI
+    setRecipes(
+      newRecipes.map((recipe, index) => ({
+        ...recipe,
+        order: index,
+      }))
+    );
+
+    try {
+      // Batch update the orders in the database
+      await recipeAPI.batchUpdateRecipeOrders(recipeUpdates);
+    } catch (error) {
+      console.error("Error updating recipe orders:", error);
+      // Revert to original order on error
+      setRecipes(recipes);
+    }
+  };
+
   if (loading) {
     return (
-      <div className="container mx-auto mt-8 px-4">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-        </div>
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
   }
@@ -201,16 +316,25 @@ export default function RecipeList() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredRecipes.map((recipe) => (
-              <RecipeCard
-                key={recipe._id}
-                recipe={recipe}
-                onDelete={undefined}
-                isEditable={false}
-              />
-            ))}
-          </div>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={recipeIds} strategy={rectSortingStrategy}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredRecipes.map((recipe) => (
+                  <RecipeCard
+                    key={recipe._id}
+                    recipe={recipe}
+                    onDelete={undefined}
+                    isEditable={false}
+                    isDraggable={!!user}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         )}
       </main>
     </div>

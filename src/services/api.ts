@@ -245,14 +245,14 @@ export const recipeAPI = {
       throw new Error("Authentication required");
     }
 
-    const response = await fetch(`${API_URL}/users/favorites/${recipeId}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    return handleResponse(response);
+    // Use the updateUserRecipeOrder endpoint instead of the legacy favorites endpoint
+    try {
+      await recipeAPI.updateUserRecipeOrder(recipeId, { isFavorite: true });
+      return { success: true, message: "Recipe added to favorites" };
+    } catch (error) {
+      console.error("Error adding to favorites:", error);
+      throw error;
+    }
   },
 
   // Remove a recipe from favorites (requires authentication)
@@ -265,14 +265,14 @@ export const recipeAPI = {
       throw new Error("Authentication required");
     }
 
-    const response = await fetch(`${API_URL}/users/favorites/${recipeId}`, {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    return handleResponse(response);
+    // Use the updateUserRecipeOrder endpoint instead of the legacy favorites endpoint
+    try {
+      await recipeAPI.updateUserRecipeOrder(recipeId, { isFavorite: false });
+      return { success: true, message: "Recipe removed from favorites" };
+    } catch (error) {
+      console.error("Error removing from favorites:", error);
+      throw error;
+    }
   },
 
   // Import a recipe from a URL (requires authentication)
@@ -296,6 +296,60 @@ export const recipeAPI = {
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ url }),
+    });
+
+    return handleResponse(response);
+  },
+
+  // Update user recipe order and favorite status
+  updateUserRecipeOrder: async (
+    recipeId: string,
+    data: { order?: number; isFavorite?: boolean }
+  ): Promise<void> => {
+    const token = getAuthToken();
+
+    if (!token) {
+      throw new Error("Authentication required");
+    }
+
+    const response = await fetch(`${API_URL}/recipes/user/order`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        recipeId,
+        ...data,
+      }),
+    });
+
+    return handleResponse(response);
+  },
+
+  // Update multiple recipe orders at once
+  batchUpdateRecipeOrders: async (
+    updates: Array<{
+      recipeId: string;
+      order: number;
+      isFavorite?: boolean;
+    }>
+  ): Promise<void> => {
+    const token = getAuthToken();
+
+    if (!token) {
+      throw new Error("Authentication required");
+    }
+
+    const response = await fetch(`${API_URL}/recipes/user/order`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        recipes: updates,
+      }),
     });
 
     return handleResponse(response);

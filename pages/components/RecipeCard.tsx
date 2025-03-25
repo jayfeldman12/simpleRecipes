@@ -1,3 +1,5 @@
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -18,11 +20,14 @@ interface RecipeCardProps {
     createdBy?: string;
     isFavorite?: boolean;
     sourceUrl?: string;
+    order?: number;
   };
   from?: string;
   isEditable?: boolean;
   onDelete?: (id: string) => void;
   onFavoriteChange?: (id: string, isFavorite: boolean) => void;
+  index?: number; // Added for drag and drop
+  isDraggable?: boolean; // Added to control draggability
 }
 
 const RecipeCard: React.FC<RecipeCardProps> = ({
@@ -31,6 +36,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
   isEditable = false,
   onDelete,
   onFavoriteChange,
+  isDraggable = false,
 }) => {
   const router = useRouter();
   const currentPath = router.pathname;
@@ -38,6 +44,26 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
   const [isFavorite, setIsFavorite] = useState<boolean>(false);
   // Safe default for image
   const [imgSrc, setImgSrc] = useState<string>("/images/default-recipe.jpg");
+
+  // Setup drag and drop with dnd-kit
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: recipe._id || "",
+    disabled: !isDraggable,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.8 : 1,
+    zIndex: isDragging ? 50 : "auto",
+  };
 
   // Initialize favorite status safely
   useEffect(() => {
@@ -96,21 +122,32 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
 
     if (!recipe?._id || !user) return;
 
+    const newStatus = !isFavorite;
+
     try {
-      const newStatus = !isFavorite;
+      // Update UI state immediately for responsive feel
       setIsFavorite(newStatus);
 
-      if (newStatus) {
-        await recipeAPI.addToFavorites(recipe._id);
-      } else {
-        await recipeAPI.removeFromFavorites(recipe._id);
-      }
+      console.log(`Toggling favorite for recipe ${recipe._id} to ${newStatus}`);
 
-      // Trigger global event for other components
-      const event = new CustomEvent("favoritesUpdated", {
+      // Always use the new API for updating favorites
+      await recipeAPI.updateUserRecipeOrder(recipe._id, {
+        isFavorite: newStatus,
+      });
+
+      console.log(`Successfully updated favorite status to ${newStatus}`);
+
+      // Dispatch custom event
+      const customEvent = new CustomEvent("favoritesChanged", {
         detail: { recipeId: recipe._id, isFavorite: newStatus },
       });
-      window.dispatchEvent(event);
+      favoritesUpdated.dispatchEvent(customEvent);
+
+      // Also dispatch window event for backward compatibility
+      const windowEvent = new CustomEvent("favoritesUpdated", {
+        detail: { recipeId: recipe._id, isFavorite: newStatus },
+      });
+      window.dispatchEvent(windowEvent);
 
       // Notify parent component if callback exists
       if (onFavoriteChange) {
@@ -118,11 +155,12 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
       }
     } catch (error) {
       console.error("Error toggling favorite:", error);
-      setIsFavorite(!isFavorite); // Revert on error
+      // Revert UI state on error
+      setIsFavorite(!newStatus);
     }
   };
 
-  return (
+  const cardContent = (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200">
       <Link
         href={
@@ -261,6 +299,20 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
         </div>
       )}
     </div>
+  );
+
+  return isDraggable ? (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      style={style}
+      className="touch-manipulation"
+    >
+      {cardContent}
+    </div>
+  ) : (
+    cardContent
   );
 };
 
