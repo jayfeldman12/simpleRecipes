@@ -162,105 +162,201 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
 
   const cardContent = (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200">
-      <Link
-        href={
-          recipe?._id
-            ? `/recipes/${recipe._id}?from=${encodeURIComponent(fromParam)}`
-            : "#"
-        }
-        className="block"
-      >
-        <div className="relative h-48">
-          <Image
-            src={imgSrc}
-            alt={recipe?.title || "Recipe"}
-            fill
-            style={{ objectFit: "cover" }}
-          />
-          {recipe?.cookingTime && (
-            <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-sm flex items-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4 mr-1"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+      {isDraggable ? (
+        // If draggable, don't use Link to prevent accidental navigation during drag
+        <div className="block">
+          <div className="relative h-48">
+            <Image
+              src={imgSrc}
+              alt={recipe?.title || "Recipe"}
+              fill
+              style={{ objectFit: "cover" }}
+            />
+            {recipe?.cookingTime && (
+              <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-sm flex items-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4 mr-1"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                {recipe.cookingTime} min
+              </div>
+            )}
+
+            {recipe?.sourceUrl && (
+              <a
+                href={recipe.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className={`absolute top-2 ${
+                  user ? "right-12" : "right-2"
+                } p-2 rounded-full bg-white shadow-md hover:bg-gray-100 transition-colors z-10`}
+                aria-label="View original recipe"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 text-blue-500"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
                   strokeWidth={2}
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              {recipe.cookingTime} min
-            </div>
-          )}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                  />
+                </svg>
+              </a>
+            )}
 
-          {recipe?.sourceUrl && (
-            <a
-              href={recipe.sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className={`absolute top-2 ${
-                user ? "right-12" : "right-2"
-              } p-2 rounded-full bg-white shadow-md hover:bg-gray-100 transition-colors z-10`}
-              aria-label="View original recipe"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 text-blue-500"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
+            {user && recipe && (
+              <button
+                onClick={handleFavoriteToggle}
+                className="absolute top-2 right-2 p-2 rounded-full bg-white shadow-md hover:bg-gray-100 z-10"
+                aria-label={
+                  isFavorite ? "Remove from favorites" : "Add to favorites"
+                }
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                />
-              </svg>
-            </a>
-          )}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className={`h-5 w-5 ${
+                    isFavorite ? "text-red-500" : "text-gray-400"
+                  }`}
+                  fill={isFavorite ? "currentColor" : "none"}
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={isFavorite ? "0" : "2"}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                  />
+                </svg>
+              </button>
+            )}
+          </div>
+          <div className="p-4">
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">
+              {recipe?.title || "Untitled Recipe"}
+            </h3>
+            <p className="text-gray-600 text-sm line-clamp-2">
+              {recipe?.description || "No description available"}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <Link
+          href={
+            recipe?._id
+              ? `/recipes/${recipe._id}?from=${encodeURIComponent(fromParam)}`
+              : "#"
+          }
+          className="block"
+        >
+          <div className="relative h-48">
+            <Image
+              src={imgSrc}
+              alt={recipe?.title || "Recipe"}
+              fill
+              style={{ objectFit: "cover" }}
+            />
+            {recipe?.cookingTime && (
+              <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-sm flex items-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4 mr-1"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                {recipe.cookingTime} min
+              </div>
+            )}
 
-          {user && recipe && (
-            <button
-              onClick={handleFavoriteToggle}
-              className="absolute top-2 right-2 p-2 rounded-full bg-white shadow-md hover:bg-gray-100 z-10"
-              aria-label={
-                isFavorite ? "Remove from favorites" : "Add to favorites"
-              }
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className={`h-5 w-5 ${
-                  isFavorite ? "text-red-500" : "text-gray-400"
-                }`}
-                fill={isFavorite ? "currentColor" : "none"}
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={isFavorite ? "0" : "2"}
+            {recipe?.sourceUrl && (
+              <a
+                href={recipe.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className={`absolute top-2 ${
+                  user ? "right-12" : "right-2"
+                } p-2 rounded-full bg-white shadow-md hover:bg-gray-100 transition-colors z-10`}
+                aria-label="View original recipe"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                />
-              </svg>
-            </button>
-          )}
-        </div>
-        <div className="p-4">
-          <h3 className="text-lg font-semibold text-gray-800 mb-2">
-            {recipe?.title || "Untitled Recipe"}
-          </h3>
-          <p className="text-gray-600 text-sm line-clamp-2">
-            {recipe?.description || "No description available"}
-          </p>
-        </div>
-      </Link>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 text-blue-500"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                  />
+                </svg>
+              </a>
+            )}
+
+            {user && recipe && (
+              <button
+                onClick={handleFavoriteToggle}
+                className="absolute top-2 right-2 p-2 rounded-full bg-white shadow-md hover:bg-gray-100 z-10"
+                aria-label={
+                  isFavorite ? "Remove from favorites" : "Add to favorites"
+                }
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className={`h-5 w-5 ${
+                    isFavorite ? "text-red-500" : "text-gray-400"
+                  }`}
+                  fill={isFavorite ? "currentColor" : "none"}
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={isFavorite ? "0" : "2"}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                  />
+                </svg>
+              </button>
+            )}
+          </div>
+          <div className="p-4">
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">
+              {recipe?.title || "Untitled Recipe"}
+            </h3>
+            <p className="text-gray-600 text-sm line-clamp-2">
+              {recipe?.description || "No description available"}
+            </p>
+          </div>
+        </Link>
+      )}
 
       {isEditable && recipe && onDelete && (
         <div className="px-4 pb-4 flex justify-end space-x-2">

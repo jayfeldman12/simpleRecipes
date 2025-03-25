@@ -229,8 +229,10 @@ const MyRecipesPage = () => {
       await recipeAPI.batchUpdateRecipeOrders(recipeUpdates);
     } catch (error) {
       console.error("Error updating recipe orders:", error);
-      // Revert to original order on error
-      setRecipes(recipes);
+      // Only revert the order if there's a valid error (network errors will be handled silently)
+      if (error instanceof Error && error.message !== "NetworkError") {
+        setRecipes(recipes);
+      }
     }
   };
 

@@ -341,17 +341,23 @@ export const recipeAPI = {
       throw new Error("Authentication required");
     }
 
-    const response = await fetch(`${API_URL}/recipes/user/order`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        recipes: updates,
-      }),
-    });
+    try {
+      const response = await fetch(`${API_URL}/recipes/user/order`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          recipes: updates,
+        }),
+      });
 
-    return handleResponse(response);
+      return handleResponse(response);
+    } catch (error) {
+      console.error("Error in batch update:", error);
+      // Don't throw the error to prevent the UI flash
+      // Instead, just log it and allow the function to complete
+    }
   },
 };
