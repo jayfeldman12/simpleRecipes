@@ -2,21 +2,24 @@ import {
   closestCenter,
   DndContext,
   DragEndEvent,
+  DragStartEvent,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
 import {
+  rectSortingStrategy,
   SortableContext,
   sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { Box, Container, LinearProgress, Typography } from "@mui/material";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
+import DragOverlay from "../../src/components/DragOverlay";
 import ProtectedRoute from "../../src/components/ProtectedRoute";
 import SearchBar from "../../src/components/SearchBar";
+import SortableRecipeCard from "../../src/components/SortableRecipeCard";
 import RecipeCard from "../components/RecipeCard";
 import { Recipe } from "./interfaces";
 
@@ -26,6 +29,7 @@ export function FavoritesPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -124,7 +128,14 @@ export function FavoritesPage() {
     fetchFavoriteRecipes();
   }, [session, status]);
 
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    setActiveId(active.id as string);
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
+    setActiveId(null);
+
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
@@ -163,6 +174,7 @@ export function FavoritesPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ updates }),
+          credentials: "include",
         });
 
         if (!response.ok) {
@@ -175,6 +187,11 @@ export function FavoritesPage() {
       }
     }
   };
+
+  // Find the active recipe when dragging
+  const activeRecipe = activeId
+    ? recipes.find((recipe) => recipe._id === activeId)
+    : null;
 
   const filteredRecipes = recipes.filter(
     (recipe) =>
@@ -221,11 +238,12 @@ export function FavoritesPage() {
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
           <SortableContext
             items={filteredRecipes.map((recipe) => recipe._id)}
-            strategy={verticalListSortingStrategy}
+            strategy={rectSortingStrategy}
           >
             <Box
               sx={{
@@ -239,8 +257,9 @@ export function FavoritesPage() {
               }}
             >
               {filteredRecipes.map((recipe) => (
-                <RecipeCard
+                <SortableRecipeCard
                   key={recipe._id}
+                  id={recipe._id}
                   recipe={{
                     _id: recipe._id,
                     title: recipe.title,
@@ -249,11 +268,25 @@ export function FavoritesPage() {
                     cookingTime: recipe.cookingTime,
                     isFavorite: true,
                   }}
-                  isDraggable={true}
                 />
               ))}
             </Box>
           </SortableContext>
+
+          {activeId && activeRecipe && (
+            <DragOverlay>
+              <RecipeCard
+                recipe={{
+                  _id: activeRecipe._id,
+                  title: activeRecipe.title,
+                  description: activeRecipe.description,
+                  imageUrl: activeRecipe.imageUrl,
+                  cookingTime: activeRecipe.cookingTime,
+                  isFavorite: true,
+                }}
+              />
+            </DragOverlay>
+          )}
         </DndContext>
       )}
     </Container>

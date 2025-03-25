@@ -80,15 +80,38 @@ export function withProtect(
 ) {
   return async (req: AuthNextApiRequest, res: NextApiResponse) => {
     try {
+      console.log("Starting auth check...");
+
       // Check for session
       const session = await getSession({ req });
+      console.log("Auth session:", JSON.stringify(session, null, 2));
 
       if (!session) {
-        return res.status(401).json({ message: "Unauthorized" });
+        console.error("No session found");
+        return res.status(401).json({ message: "Unauthorized - No session" });
       }
 
+      if (!session.user) {
+        console.error("Session has no user", session);
+        return res
+          .status(401)
+          .json({ message: "Unauthorized - No user in session" });
+      }
+
+      // Ensure the user ID exists in the session
+      // TypeScript doesn't know all possible properties, so use type assertion to check for various ID formats
+      const user = session.user;
+      const userId = user.id || (user as any)._id || (user as any).userId;
+
+      if (!userId) {
+        console.error("No user ID found in session", session.user);
+        return res.status(401).json({ message: "Unauthorized - No user ID" });
+      }
+
+      console.log(`Found user ID: ${userId}`);
+
       // Add user to request
-      req.user = { _id: session.user.id };
+      req.user = { _id: userId };
 
       // Call the original handler
       return handler(req, res);

@@ -13,7 +13,17 @@ const DragOverlay: React.FC<DragOverlayProps> = ({ children }) => {
         easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)",
       }}
     >
-      {children}
+      <div
+        style={{
+          transform: "scale(1.05)",
+          boxShadow: "0 0 20px rgba(0, 0, 0, 0.15)",
+          cursor: "grabbing",
+          zIndex: 1000,
+          position: "relative",
+        }}
+      >
+        {children}
+      </div>
     </DndDragOverlay>
   );
 };

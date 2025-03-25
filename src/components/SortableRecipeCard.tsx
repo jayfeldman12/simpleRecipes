@@ -2,10 +2,18 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React from "react";
 import RecipeCard from "../../pages/components/RecipeCard";
-import { Recipe } from "../types/recipe";
+
+interface SimplifiedRecipe {
+  _id: string;
+  title: string;
+  description: string;
+  imageUrl?: string;
+  cookingTime?: number;
+  isFavorite?: boolean;
+}
 
 interface SortableRecipeCardProps {
-  recipe: Recipe;
+  recipe: SimplifiedRecipe;
   id: string;
   isEditable?: boolean;
   onDelete?: (id: string) => void;
@@ -34,10 +42,20 @@ const SortableRecipeCard: React.FC<SortableRecipeCardProps> = ({
     opacity: isDragging ? 0.5 : 1,
     position: "relative" as const,
     zIndex: isDragging ? 999 : 1,
+    touchAction: "none", // Prevents scrolling while dragging on touch devices
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={`relative group cursor-grab ${
+        isDragging ? "cursor-grabbing" : ""
+      }`}
+    >
+      <div className="absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-gray-200/50 to-transparent rounded-t-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
       <RecipeCard
         recipe={recipe}
         isEditable={isEditable}

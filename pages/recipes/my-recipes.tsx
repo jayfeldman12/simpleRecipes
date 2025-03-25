@@ -2,15 +2,16 @@ import {
   closestCenter,
   DndContext,
   DragEndEvent,
+  DragStartEvent,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
 import {
+  rectSortingStrategy,
   SortableContext,
   sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import AddIcon from "@mui/icons-material/Add";
 import {
@@ -24,8 +25,10 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { useEffect, useState } from "react";
+import DragOverlay from "../../src/components/DragOverlay";
 import ProtectedRoute from "../../src/components/ProtectedRoute";
 import SearchBar from "../../src/components/SearchBar";
+import SortableRecipeCard from "../../src/components/SortableRecipeCard";
 import useDebounce from "../../src/hooks/useDebounce";
 import RecipeCard from "../components/RecipeCard";
 import { Recipe } from "./interfaces";
@@ -137,7 +140,14 @@ const MyRecipesPage: React.FC = () => {
     fetchUserRecipes();
   }, [session, status]);
 
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    setActiveId(active.id as string);
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
+    setActiveId(null);
+
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
@@ -176,6 +186,7 @@ const MyRecipesPage: React.FC = () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ updates }),
+          credentials: "include",
         });
 
         if (!response.ok) {
@@ -196,7 +207,7 @@ const MyRecipesPage: React.FC = () => {
   );
 
   const activeRecipe = activeId
-    ? recipes.find((r) => r._id === activeId)
+    ? recipes.find((recipe) => recipe._id === activeId)
     : null;
 
   return (
@@ -256,11 +267,12 @@ const MyRecipesPage: React.FC = () => {
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
           <SortableContext
             items={filteredRecipes.map((recipe) => recipe._id)}
-            strategy={verticalListSortingStrategy}
+            strategy={rectSortingStrategy}
           >
             <Box
               sx={{
@@ -274,8 +286,9 @@ const MyRecipesPage: React.FC = () => {
               }}
             >
               {filteredRecipes.map((recipe) => (
-                <RecipeCard
+                <SortableRecipeCard
                   key={recipe._id}
+                  id={recipe._id}
                   recipe={{
                     _id: recipe._id,
                     title: recipe.title,
@@ -284,11 +297,25 @@ const MyRecipesPage: React.FC = () => {
                     cookingTime: recipe.cookingTime,
                     isFavorite: recipe.isFavorite,
                   }}
-                  isDraggable={true}
                 />
               ))}
             </Box>
           </SortableContext>
+
+          {activeId && activeRecipe && (
+            <DragOverlay>
+              <RecipeCard
+                recipe={{
+                  _id: activeRecipe._id,
+                  title: activeRecipe.title,
+                  description: activeRecipe.description,
+                  imageUrl: activeRecipe.imageUrl,
+                  cookingTime: activeRecipe.cookingTime,
+                  isFavorite: activeRecipe.isFavorite,
+                }}
+              />
+            </DragOverlay>
+          )}
         </DndContext>
       )}
     </Container>

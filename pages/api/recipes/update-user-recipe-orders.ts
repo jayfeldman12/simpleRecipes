@@ -1,7 +1,7 @@
-import { NextApiRequest, NextApiResponse } from "next";
-import { getSession } from "next-auth/react";
+import mongoose from "mongoose";
+import { NextApiResponse } from "next";
 import { getUserRecipeOrderModel } from "../../../src/models/UserRecipeOrder";
-import { connectDB } from "../../utils/database";
+import { AuthNextApiRequest, connectDB, withProtect } from "../utils/auth";
 
 interface RecipeOrderUpdate {
   recipeId: string;
@@ -15,10 +15,9 @@ interface RecipeOrderUpdate {
  * @route POST /api/recipes/update-user-recipe-orders
  * @access Private
  */
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
+  console.log("Starting update-user-recipe-orders handler");
+
   // Only allow POST method
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed" });
@@ -26,20 +25,26 @@ export default async function handler(
 
   try {
     // Check authentication
-    const session = await getSession({ req });
-    if (!session || !session.user) {
+    console.log("Checking authentication, user:", req.user);
+
+    if (!req.user || !req.user._id) {
+      console.error("Authentication failed - no user or user ID");
       return res.status(401).json({ message: "Not authenticated" });
     }
 
-    const userId = session.user.id;
+    const userId = req.user._id;
+    console.log("User ID:", userId);
 
     // Validate request body
     const { updates } = req.body as { updates: RecipeOrderUpdate[] };
     if (!updates || !Array.isArray(updates)) {
+      console.error("Invalid request body:", req.body);
       return res
         .status(400)
         .json({ message: "Invalid request: updates array required" });
     }
+
+    console.log("Updates to process:", updates);
 
     // Connect to database
     await connectDB();
@@ -58,9 +63,14 @@ export default async function handler(
           continue;
         }
 
+        console.log(`Processing update for recipe ${recipeId}, order ${order}`);
+
         // Create or update the user recipe order
         const result = await UserRecipeOrder.findOneAndUpdate(
-          { userId, recipeId },
+          {
+            userId: new mongoose.Types.ObjectId(userId),
+            recipeId: new mongoose.Types.ObjectId(recipeId),
+          },
           {
             $set: {
               order: order !== undefined ? order : 0,
@@ -72,6 +82,7 @@ export default async function handler(
           { upsert: true, new: true }
         );
 
+        console.log("Update result:", result);
         results.push({ success: true, recipeId, result });
       } catch (error) {
         console.error("Error updating user recipe order:", error);
@@ -79,6 +90,7 @@ export default async function handler(
       }
     }
 
+    console.log("All updates processed, results:", results);
     return res.status(200).json({ message: "Update successful", results });
   } catch (error) {
     console.error("Error updating user recipe orders:", error);
@@ -87,3 +99,5 @@ export default async function handler(
       .json({ message: "Server error", error: String(error) });
   }
 }
+
+export default withProtect(handler);

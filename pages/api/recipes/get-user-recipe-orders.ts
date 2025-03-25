@@ -1,17 +1,14 @@
-import { NextApiRequest, NextApiResponse } from "next";
-import { getSession } from "next-auth/react";
+import mongoose from "mongoose";
+import { NextApiResponse } from "next";
 import { getUserRecipeOrderModel } from "../../../src/models/UserRecipeOrder";
-import { connectDB } from "../../utils/database";
+import { AuthNextApiRequest, connectDB, withProtect } from "../utils/auth";
 
 /**
  * Get user recipe orders
  * @route GET /api/recipes/get-user-recipe-orders
  * @access Private
  */
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
   // Only allow GET method
   if (req.method !== "GET") {
     return res.status(405).json({ message: "Method not allowed" });
@@ -19,12 +16,11 @@ export default async function handler(
 
   try {
     // Check authentication
-    const session = await getSession({ req });
-    if (!session || !session.user) {
+    if (!req.user || !req.user._id) {
       return res.status(401).json({ message: "Not authenticated" });
     }
 
-    const userId = session.user.id;
+    const userId = req.user._id;
 
     // Optional recipe type filter
     const { recipeType } = req.query;
@@ -36,7 +32,9 @@ export default async function handler(
     const UserRecipeOrder = getUserRecipeOrderModel();
 
     // Build query
-    const query: { userId: string; recipeType?: string } = { userId };
+    const query: { userId: mongoose.Types.ObjectId; recipeType?: string } = {
+      userId: new mongoose.Types.ObjectId(userId),
+    };
     if (recipeType && typeof recipeType === "string") {
       query.recipeType = recipeType;
     }
@@ -74,3 +72,5 @@ export default async function handler(
       .json({ message: "Server error", error: String(error) });
   }
 }
+
+export default withProtect(handler);
