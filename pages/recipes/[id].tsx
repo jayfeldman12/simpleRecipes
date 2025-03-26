@@ -66,6 +66,9 @@ export default function RecipeDetail() {
   const [error, setError] = useState<string | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
   const [previousPage, setPreviousPage] = useState("/recipes");
+  const [expandedSection, setExpandedSection] = useState<
+    "ingredients" | "instructions" | null
+  >(null);
 
   useEffect(() => {
     // Get the previous page from the query parameter
@@ -169,6 +172,14 @@ export default function RecipeDetail() {
         console.error("Failed to delete recipe:", err);
         setError("Failed to delete recipe. Please try again.");
       }
+    }
+  };
+
+  const toggleExpand = (section: "ingredients" | "instructions") => {
+    if (expandedSection === section) {
+      setExpandedSection(null); // Collapse if already expanded
+    } else {
+      setExpandedSection(section); // Expand the clicked section
     }
   };
 
@@ -456,20 +467,102 @@ export default function RecipeDetail() {
         </div>
 
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Ingredients Section - Top 1/3 */}
-          <div className="bg-gray-50 border-b border-gray-200 h-2/5 overflow-y-auto">
-            <div className="sticky top-0 bg-gray-50 z-10 py-1 px-3 border-b border-gray-100">
+          {/* Ingredients Section */}
+          <div
+            className={`bg-gray-50 border-b border-gray-200 transition-all duration-300 ${
+              expandedSection === "ingredients"
+                ? "h-full"
+                : expandedSection === "instructions"
+                ? "h-0 overflow-hidden"
+                : "h-2/5"
+            } overflow-y-auto`}
+          >
+            <div className="sticky top-0 bg-gray-50 z-10 py-1 px-3 border-b border-gray-100 flex justify-between items-center">
               <h2 className="text-lg font-semibold">Ingredients</h2>
+              <button
+                onClick={() => toggleExpand("ingredients")}
+                className="p-1 text-gray-500 hover:text-gray-700"
+                aria-label={
+                  expandedSection === "ingredients"
+                    ? "Collapse ingredients"
+                    : "Expand ingredients"
+                }
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  {expandedSection === "ingredients" ? (
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 15l7-7 7 7"
+                    />
+                  ) : (
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  )}
+                </svg>
+              </button>
             </div>
             <div className="p-3 pt-2">
               <RenderIngredients ingredients={recipe.ingredients} />
             </div>
           </div>
 
-          {/* Instructions Section - Bottom 2/3 */}
-          <div className="flex-1 h-3/5 overflow-y-auto">
-            <div className="sticky top-0 bg-white z-10 py-1 px-3 border-b border-gray-100">
+          {/* Instructions Section */}
+          <div
+            className={`flex-1 transition-all duration-300 ${
+              expandedSection === "instructions"
+                ? "h-full"
+                : expandedSection === "ingredients"
+                ? "h-0 overflow-hidden"
+                : "h-3/5"
+            } overflow-y-auto`}
+          >
+            <div className="sticky top-0 bg-white z-10 py-1 px-3 border-b border-gray-100 flex justify-between items-center">
               <h2 className="text-lg font-semibold">Instructions</h2>
+              <button
+                onClick={() => toggleExpand("instructions")}
+                className="p-1 text-gray-500 hover:text-gray-700"
+                aria-label={
+                  expandedSection === "instructions"
+                    ? "Collapse instructions"
+                    : "Expand instructions"
+                }
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  {expandedSection === "instructions" ? (
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 15l7-7 7 7"
+                    />
+                  ) : (
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  )}
+                </svg>
+              </button>
             </div>
             <ol className="space-y-3 p-3 pt-2">
               {recipe.instructions.map((instruction, index) => (
