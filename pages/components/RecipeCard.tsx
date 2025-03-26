@@ -44,6 +44,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
   const [isFavorite, setIsFavorite] = useState<boolean>(false);
   // Safe default for image
   const [imgSrc, setImgSrc] = useState<string>("/images/default-recipe.jpg");
+  const [wasDragging, setWasDragging] = useState<boolean>(false);
 
   // Defensive check for undefined recipe during prerendering
   if (!recipe || !recipe._id) {
@@ -69,6 +70,19 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
     opacity: isDragging ? 0.8 : 1,
     zIndex: isDragging ? 50 : "auto",
   };
+
+  // Track the dragging state to prevent navigation when dragging
+  useEffect(() => {
+    if (isDragging) {
+      setWasDragging(true);
+    } else {
+      // Reset wasDragging after a short delay to allow click events
+      const timeout = setTimeout(() => {
+        setWasDragging(false);
+      }, 100);
+      return () => clearTimeout(timeout);
+    }
+  }, [isDragging]);
 
   // Initialize favorite status safely
   useEffect(() => {
@@ -161,11 +175,26 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
     }
   };
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't navigate if we were just dragging
+    if (wasDragging) return;
+
+    // Navigate to the recipe detail page
+    if (recipe?._id) {
+      router.push(
+        `/recipes/${recipe._id}?from=${encodeURIComponent(fromParam)}`
+      );
+    }
+  };
+
   const cardContent = (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200 flex flex-col h-full">
       {isDraggable ? (
-        // If draggable, don't use Link to prevent accidental navigation during drag
-        <div className="block flex-grow">
+        // If draggable, use a div with a click handler to allow both dragging and navigation
+        <div
+          className="block flex-grow cursor-pointer"
+          onClick={handleCardClick}
+        >
           <div className="relative h-48">
             <Image
               src={imgSrc}
@@ -198,7 +227,11 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
                 href={recipe.sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  window.open(recipe.sourceUrl, "_blank");
+                }}
                 className={`absolute top-2 ${
                   user ? "right-12" : "right-2"
                 } p-2 rounded-full bg-white shadow-md hover:bg-gray-100 transition-colors z-10`}
@@ -223,7 +256,10 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
 
             {user && recipe && (
               <button
-                onClick={handleFavoriteToggle}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleFavoriteToggle(e);
+                }}
                 className="absolute top-2 right-2 p-2 rounded-full bg-white shadow-md hover:bg-gray-100 z-10"
                 aria-label={
                   isFavorite ? "Remove from favorites" : "Add to favorites"
@@ -364,6 +400,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
           <Link
             href={`/recipes/edit/${recipe._id}`}
             className="text-green-700 hover:text-green-900"
+            onClick={isDraggable ? (e) => e.stopPropagation() : undefined}
           >
             <span className="sr-only">Edit</span>
             <svg
@@ -376,7 +413,12 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
             </svg>
           </Link>
           <button
-            onClick={() => recipe._id && onDelete(recipe._id)}
+            onClick={(e) => {
+              if (isDraggable) {
+                e.stopPropagation();
+              }
+              if (recipe._id && onDelete) onDelete(recipe._id);
+            }}
             className="text-red-500 hover:text-red-700"
           >
             <span className="sr-only">Delete</span>
