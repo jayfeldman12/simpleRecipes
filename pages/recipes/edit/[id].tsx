@@ -33,16 +33,34 @@ export default function EditRecipe() {
   // Add refs object to store refs for textareas
   const textareaRefs = useRef<{ [key: number]: HTMLTextAreaElement }>({});
 
-  // Function to adjust textarea height
+  // Add a state to track mobile view
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Update useEffect to detect mobile view
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+
+    // Initial check
+    checkMobile();
+
+    // Add event listener for resize
+    window.addEventListener("resize", checkMobile);
+
+    // Cleanup
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Update the adjustTextareaHeight function to respect mobile setting
   const adjustTextareaHeight = (index: number) => {
     const textarea = textareaRefs.current[index];
-    if (!textarea) return;
+    if (!textarea || isMobile) return;
 
     // Reset height to auto to get the correct scrollHeight
     textarea.style.height = "auto";
 
     // Calculate new height (scrollHeight gives content height)
-    // Add a little extra padding to prevent scrollbar from appearing prematurely
     const newHeight = textarea.scrollHeight;
 
     // Set new height
@@ -637,9 +655,13 @@ export default function EditRecipe() {
                     ref={(el) => {
                       if (el) textareaRefs.current[index] = el;
                     }}
-                    className="flex-1 px-3 sm:px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`flex-1 px-3 sm:px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      isMobile
+                        ? "max-h-[120px] overflow-auto"
+                        : "overflow-hidden"
+                    }`}
                     placeholder={`Step ${index + 1}`}
-                    style={{ minHeight: "60px", overflow: "hidden" }}
+                    style={{ minHeight: "60px" }}
                     required
                   />
                   <button
