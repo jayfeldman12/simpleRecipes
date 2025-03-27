@@ -2,7 +2,7 @@ import React from "react";
 import { Tag } from "../../src/types/recipe";
 
 interface TagBadgeProps {
-  tag: Tag | string;
+  tag?: Tag | string;
   size?: "small" | "medium" | "large";
   onClick?: (tag: Tag | string) => void;
   selected?: boolean;
@@ -16,8 +16,13 @@ const TagBadge: React.FC<TagBadgeProps> = ({
   selected = false,
   className = "",
 }) => {
-  // Determine the tag name
-  const tagName = typeof tag === "string" ? tag : tag.name;
+  // Return null if tag is undefined
+  if (tag === undefined || tag === null) {
+    return null;
+  }
+
+  // Determine the tag name with fallback
+  const tagName = typeof tag === "string" ? tag : tag.name || "Unknown tag";
 
   // Size-based classes
   const sizeClasses = {
