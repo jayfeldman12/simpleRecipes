@@ -284,11 +284,13 @@ export default function EditRecipe() {
   }
 
   return (
-    <div className="container max-w-4xl mx-auto my-8 px-4">
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h1 className="text-3xl font-bold text-gray-800 mb-6">Edit Recipe</h1>
+    <div className="container max-w-4xl mx-auto my-4 sm:my-8 px-2 sm:px-4">
+      <div className="bg-white p-3 sm:p-6 rounded-lg shadow-md">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-4 sm:mb-6">
+          Edit Recipe
+        </h1>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Title
@@ -381,7 +383,7 @@ export default function EditRecipe() {
             />
           </div>
 
-          <div className="bg-gray-50 p-4 rounded-lg">
+          <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Ingredients
             </label>
@@ -414,7 +416,7 @@ export default function EditRecipe() {
                         </button>
                       </div>
                     )}
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <input
                       type="text"
                       value={
@@ -427,7 +429,7 @@ export default function EditRecipe() {
                       onChange={(e) =>
                         handleIngredientChange(index, e.target.value)
                       }
-                      className={`flex-1 px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      className={`flex-1 px-3 sm:px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         "sectionTitle" in ingredient
                           ? "font-bold bg-gray-50"
                           : ""
@@ -439,53 +441,58 @@ export default function EditRecipe() {
                       }
                       required
                     />
-                    {"text" in ingredient && (
-                      <div className="flex items-center">
-                        <label className="inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={
-                              "optional" in ingredient
-                                ? !!ingredient.optional
-                                : false
-                            }
-                            onChange={() => toggleIngredientOptional(index)}
-                            className="form-checkbox h-4 w-4 text-blue-600 transition duration-150 ease-in-out"
-                          />
-                          <span className="ml-2 text-xs text-gray-600">
-                            Optional
-                          </span>
-                        </label>
-                      </div>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => removeIngredient(index)}
-                      className="px-3 py-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
+                    <div className="flex items-center justify-between sm:justify-start">
+                      {"text" in ingredient && (
+                        <div className="flex items-center mr-2">
+                          <label className="inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={
+                                "optional" in ingredient
+                                  ? !!ingredient.optional
+                                  : false
+                              }
+                              onChange={() => toggleIngredientOptional(index)}
+                              className="form-checkbox h-4 w-4 text-blue-600 transition duration-150 ease-in-out"
+                            />
+                            <span className="ml-2 text-xs text-gray-600">
+                              Optional
+                            </span>
+                          </label>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeIngredient(index)}
+                        className="px-3 py-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
                       >
-                        <path
-                          fillRule="evenodd"
-                          d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </button>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-5 w-5"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
 
                   {/* Sub-ingredients for sections */}
                   {"sectionTitle" in ingredient && (
-                    <div className="ml-6 mt-2 space-y-2">
+                    <div className="ml-3 sm:ml-6 mt-2 space-y-2">
                       <div className="text-xs text-gray-500 mb-1">
                         Section Ingredients:
                       </div>
                       {ingredient.ingredients.map((subIngredient, subIndex) => (
-                        <div key={subIndex} className="flex gap-2">
+                        <div
+                          key={subIndex}
+                          className="flex flex-col sm:flex-row gap-2"
+                        >
                           <input
                             type="text"
                             value={
@@ -501,45 +508,52 @@ export default function EditRecipe() {
                             className="flex-1 px-3 py-1 text-sm rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder={`Sub-ingredient ${subIndex + 1}`}
                           />
-                          {"text" in subIngredient && (
-                            <div className="flex items-center">
-                              <label className="inline-flex items-center cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={
-                                    "optional" in subIngredient
-                                      ? !!subIngredient.optional
-                                      : false
-                                  }
-                                  onChange={() =>
-                                    toggleSubIngredientOptional(index, subIndex)
-                                  }
-                                  className="form-checkbox h-3 w-3 text-blue-600 transition duration-150 ease-in-out"
-                                />
-                                <span className="ml-1 text-xs text-gray-600">
-                                  Opt
-                                </span>
-                              </label>
-                            </div>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => removeSubIngredient(index, subIndex)}
-                            className="px-2 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-4 w-4"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
+                          <div className="flex items-center justify-between sm:justify-start">
+                            {"text" in subIngredient && (
+                              <div className="flex items-center mr-2">
+                                <label className="inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={
+                                      "optional" in subIngredient
+                                        ? !!subIngredient.optional
+                                        : false
+                                    }
+                                    onChange={() =>
+                                      toggleSubIngredientOptional(
+                                        index,
+                                        subIndex
+                                      )
+                                    }
+                                    className="form-checkbox h-3 w-3 text-blue-600 transition duration-150 ease-in-out"
+                                  />
+                                  <span className="ml-1 text-xs text-gray-600">
+                                    Opt
+                                  </span>
+                                </label>
+                              </div>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                removeSubIngredient(index, subIndex)
+                              }
+                              className="px-2 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
                             >
-                              <path
-                                fillRule="evenodd"
-                                d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          </button>
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-4 w-4"
+                                viewBox="0 0 20 20"
+                                fill="currentColor"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                       ))}
                       <button
@@ -608,13 +622,13 @@ export default function EditRecipe() {
             </div>
           </div>
 
-          <div className="bg-gray-50 p-4 rounded-lg">
+          <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Instructions
             </label>
             <div className="space-y-3">
               {formData.instructions.map((instruction, index) => (
-                <div key={index} className="flex gap-2">
+                <div key={index} className="flex flex-col sm:flex-row gap-2">
                   <textarea
                     value={instruction.text}
                     onChange={(e) =>
@@ -623,7 +637,7 @@ export default function EditRecipe() {
                     ref={(el) => {
                       if (el) textareaRefs.current[index] = el;
                     }}
-                    className="flex-1 px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 px-3 sm:px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder={`Step ${index + 1}`}
                     style={{ minHeight: "60px", overflow: "hidden" }}
                     required
@@ -631,7 +645,7 @@ export default function EditRecipe() {
                   <button
                     type="button"
                     onClick={() => removeInstruction(index)}
-                    className="px-3 py-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                    className="self-start sm:self-center px-3 py-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -670,27 +684,26 @@ export default function EditRecipe() {
             </div>
           </div>
 
-          <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 sm:px-6 flex justify-end gap-4 z-10">
-            <div className="max-w-4xl w-full mx-auto flex justify-end gap-4">
+          <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-2 sm:px-4 py-2 sm:py-3 flex justify-end gap-2 sm:gap-4 z-10 shadow-md">
+            <div className="w-full mx-auto flex justify-end gap-2 sm:gap-4">
               <button
                 type="button"
                 onClick={() => router.push(`/recipes/${recipe._id}`)}
-                className="px-4 py-2 border border-gray-300 text-gray-700 bg-white rounded-md hover:bg-gray-50 transition-colors"
+                className="px-3 sm:px-4 py-2 border border-gray-300 text-gray-700 bg-white rounded-md hover:bg-gray-50 transition-colors text-sm sm:text-base"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="px-5 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="px-4 sm:px-5 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors text-sm sm:text-base"
               >
                 {loading ? "Saving..." : "Save Changes"}
               </button>
             </div>
           </div>
 
-          {/* Add padding at the bottom to prevent content from being hidden behind the sticky buttons */}
-          <div className="pb-20"></div>
+          <div className="pb-16 sm:pb-20"></div>
         </form>
       </div>
     </div>
