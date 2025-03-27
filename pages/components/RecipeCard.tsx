@@ -446,7 +446,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
       {...attributes}
       {...listeners}
       style={style}
-      className="touch-manipulation"
+      className="touch-manipulation cursor-pointer"
     >
       {cardContent}
     </div>
