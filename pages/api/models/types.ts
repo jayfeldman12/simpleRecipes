@@ -6,7 +6,6 @@ export interface IUserBase {
   username: string;
   password: string;
   createdAt: Date;
-  favorites: Types.ObjectId[];
 }
 
 export interface IRecipeBase {

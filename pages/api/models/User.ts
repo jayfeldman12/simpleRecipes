@@ -25,12 +25,6 @@ const UserSchema = new Schema<IUserDocument>(
       type: Date,
       default: Date.now,
     },
-    favorites: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: "Recipe",
-      },
-    ],
   },
   {
     timestamps: true,

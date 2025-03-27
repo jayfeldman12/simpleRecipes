@@ -1,5 +1,5 @@
 import { NextApiResponse } from "next";
-import { UserRecipeOrderModel } from "../../models/UserRecipeOrder";
+import { UserRecipeModel } from "../../models/UserRecipe";
 import { AuthNextApiRequest, connectDB, withProtect } from "../../utils/auth";
 
 // @desc    Get user's recipes
@@ -24,17 +24,12 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
     // Import User model dynamically
     const User = (await import("../../models/User")).default;
 
-    // Get user with favorites
+    // Get user
     const user = await User.findById(req.user._id);
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-
-    // Convert user favorites to a Set for faster lookups
-    const favoritesSet = new Set(
-      user.favorites.map((id: any) => id.toString())
-    );
 
     // Get user's recipes
     const recipes = await Recipe.find({ user: req.user._id }).sort({
@@ -42,7 +37,7 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
     });
 
     // Fetch recipe order information
-    const recipeOrders = await UserRecipeOrderModel.find({
+    const recipeOrders = await UserRecipeModel.find({
       userId: req.user._id.toString(),
       recipeId: { $in: recipes.map((r: any) => r._id.toString()) },
     });
@@ -67,9 +62,6 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
         isFavorite: false,
       };
 
-      // Check if this recipe is in the user's favorites (from both sources)
-      const isFavoriteFromLegacySystem = favoritesSet.has(recipeId);
-
       const finalOrder =
         orderInfo.order !== null && orderInfo.order !== undefined
           ? Number(orderInfo.order) // Ensure order is a number
@@ -77,8 +69,8 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
 
       return {
         ...recipeObj,
-        // Use ordering system's favorite flag if available, otherwise fallback to legacy
-        isFavorite: orderInfo.isFavorite || isFavoriteFromLegacySystem,
+        // Use ordering system's favorite flag
+        isFavorite: orderInfo.isFavorite,
         // Include order information as a number
         order: finalOrder,
       };

@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import Recipe from "../models/Recipe";
-import { UserRecipeOrderModel } from "../models/UserRecipeOrder";
+import { UserRecipeModel } from "../models/UserRecipe";
 import { AuthNextApiRequest, connectDB, withProtect } from "../utils/auth";
 import { processImageUrl } from "../utils/awsS3";
 
@@ -42,17 +42,12 @@ async function getRecipes(
       // Import User model dynamically to avoid circular dependencies
       const User = (await import("../models/User")).default;
 
-      // Get user with favorites
+      // Get user
       const user = await User.findById(req.user._id);
 
       if (user) {
-        // Convert user favorites to string IDs for comparison
-        const favoritesSet = new Set(
-          user.favorites.map((id: any) => id.toString())
-        );
-
         // Fetch recipe ordering information
-        const recipeOrders = await UserRecipeOrderModel.find({
+        const recipeOrders = await UserRecipeModel.find({
           userId: req.user._id.toString(),
           recipeId: { $in: recipes.map((r: any) => r._id.toString()) },
         });

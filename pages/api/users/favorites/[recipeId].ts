@@ -1,5 +1,5 @@
 import { NextApiResponse } from "next";
-import { UserRecipeOrderModel } from "../../models/UserRecipeOrder";
+import { UserRecipeModel } from "../../models/UserRecipe";
 import { AuthNextApiRequest, connectDB, withProtect } from "../../utils/auth";
 
 // @desc    Add or remove recipe from favorites
@@ -25,7 +25,7 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
     // POST - Add to favorites
     if (req.method === "POST") {
       // Check if recipe order entry exists
-      let recipeOrder = await UserRecipeOrderModel.findOne({
+      let recipeOrder = await UserRecipeModel.findOne({
         userId,
         recipeId: recipeId as string,
       });
@@ -43,13 +43,13 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
       } else {
         // Create new entry
         // Get max existing order to place this at the end
-        const maxOrderRecord = await UserRecipeOrderModel.findOne({
+        const maxOrderRecord = await UserRecipeModel.findOne({
           userId,
         }).sort({ order: -1 });
 
         const nextOrder = maxOrderRecord ? maxOrderRecord.order + 1 : 0;
 
-        recipeOrder = await UserRecipeOrderModel.create({
+        recipeOrder = await UserRecipeModel.create({
           userId,
           recipeId: recipeId as string,
           isFavorite: true,
@@ -71,7 +71,7 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
     // DELETE - Remove from favorites
     if (req.method === "DELETE") {
       // Find the recipe order entry
-      const recipeOrder = await UserRecipeOrderModel.findOne({
+      const recipeOrder = await UserRecipeModel.findOne({
         userId,
         recipeId: recipeId as string,
       });

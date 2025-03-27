@@ -1,5 +1,5 @@
 import { NextApiResponse } from "next";
-import { UserRecipeOrderModel } from "../../models/UserRecipeOrder";
+import { UserRecipeModel } from "../../models/UserRecipe";
 import { AuthNextApiRequest, withProtect } from "../../utils/auth";
 import dbConnect from "../../utils/dbConnect";
 
@@ -26,7 +26,7 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
       }
 
       // Check if the document already exists
-      const existingOrder = await UserRecipeOrderModel.findOne({
+      const existingOrder = await UserRecipeModel.findOne({
         userId: req.user._id.toString(),
         recipeId: recipeId,
       });
@@ -37,7 +37,7 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
         // If we're updating the order, shift other orders
         if (order !== undefined && order !== existingOrder.order) {
           // Get all recipes that need to be shifted
-          const recipesToShift = await UserRecipeOrderModel.find({
+          const recipesToShift = await UserRecipeModel.find({
             userId: req.user._id.toString(),
             order: {
               $gte: Math.min(order, existingOrder.order),
@@ -49,7 +49,7 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
           // Shift orders up or down
           const shiftAmount = order < existingOrder.order ? 1 : -1;
           for (const recipe of recipesToShift) {
-            await UserRecipeOrderModel.findByIdAndUpdate(recipe._id, {
+            await UserRecipeModel.findByIdAndUpdate(recipe._id, {
               $inc: { order: shiftAmount },
             });
           }
@@ -60,7 +60,7 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
         if (order !== undefined) updateData.order = order;
         if (isFavorite !== undefined) updateData.isFavorite = isFavorite;
 
-        userRecipeOrder = await UserRecipeOrderModel.findOneAndUpdate(
+        userRecipeOrder = await UserRecipeModel.findOneAndUpdate(
           {
             userId: req.user._id.toString(),
             recipeId: recipeId,
@@ -72,7 +72,7 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
         // For new favorites, add to the end of the favorites list
         if (isFavorite) {
           // Get the highest order among favorites
-          const maxOrderRecord = await UserRecipeOrderModel.findOne({
+          const maxOrderRecord = await UserRecipeModel.findOne({
             userId: req.user._id.toString(),
             isFavorite: true,
           }).sort({ order: -1 });
@@ -80,7 +80,7 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
           const nextOrder = maxOrderRecord ? maxOrderRecord.order + 1 : 0;
 
           // Create new entry at the end of favorites
-          userRecipeOrder = await UserRecipeOrderModel.create({
+          userRecipeOrder = await UserRecipeModel.create({
             userId: req.user._id.toString(),
             recipeId,
             isFavorite: true,
@@ -88,7 +88,7 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
           });
         } else {
           // For non-favorites, create with default order
-          userRecipeOrder = await UserRecipeOrderModel.create({
+          userRecipeOrder = await UserRecipeModel.create({
             userId: req.user._id.toString(),
             recipeId,
             order: order ?? 0,
@@ -119,14 +119,14 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
 
         try {
           // Check if document exists first
-          const existing = await UserRecipeOrderModel.findOne({
+          const existing = await UserRecipeModel.findOne({
             userId,
             recipeId,
           });
 
           if (existing) {
             // Update existing document
-            const updated = await UserRecipeOrderModel.findOneAndUpdate(
+            const updated = await UserRecipeModel.findOneAndUpdate(
               { userId, recipeId },
               { $set: updateData },
               { new: true }
@@ -134,7 +134,7 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
             result.push(updated);
           } else {
             // Create new document
-            const newOrder = await UserRecipeOrderModel.create({
+            const newOrder = await UserRecipeModel.create({
               userId,
               recipeId,
               order: order ?? 0,

@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-export type UserRecipeOrder = {
+export type UserRecipe = {
   _id?: string;
   userId: string;
   recipeId: string;
@@ -8,7 +8,7 @@ export type UserRecipeOrder = {
   isFavorite: boolean;
 };
 
-const userRecipeOrderSchema = new mongoose.Schema(
+const userRecipeSchema = new mongoose.Schema(
   {
     userId: {
       type: String,
@@ -34,11 +34,10 @@ const userRecipeOrderSchema = new mongoose.Schema(
 );
 
 // Create a compound index on userId and recipeId to ensure uniqueness
-userRecipeOrderSchema.index({ userId: 1, recipeId: 1 }, { unique: true });
+userRecipeSchema.index({ userId: 1, recipeId: 1 }, { unique: true });
 
 // Create an index on userId and order for efficient sorting
-userRecipeOrderSchema.index({ userId: 1, order: 1 });
+userRecipeSchema.index({ userId: 1, order: 1 });
 
-export const UserRecipeOrderModel =
-  mongoose.models.UserRecipeOrder ||
-  mongoose.model("UserRecipeOrder", userRecipeOrderSchema);
+export const UserRecipeModel =
+  mongoose.models.UserRecipe || mongoose.model("UserRecipe", userRecipeSchema);

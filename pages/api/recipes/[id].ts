@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import Recipe from "../models/Recipe";
+import { UserRecipeModel } from "../models/UserRecipe";
 import { AuthNextApiRequest, connectDB, withProtect } from "../utils/auth";
 import { processImageUrl } from "../utils/awsS3";
 
@@ -22,18 +23,18 @@ async function getRecipeById(
     let isFavorite = false;
 
     if ((req as AuthNextApiRequest).user) {
-      // Import User model dynamically to avoid circular dependencies
-      const User = (await import("../models/User")).default;
-
       // Access user data safely with optional chaining
-      const userId = (req as AuthNextApiRequest).user?._id;
+      const userId = (req as AuthNextApiRequest).user?._id?.toString();
 
       if (userId) {
-        const user = await User.findById(userId);
+        // Check favorite status using UserRecipe model
+        const userRecipe = await UserRecipeModel.findOne({
+          userId,
+          recipeId: id as string,
+          isFavorite: true,
+        });
 
-        if (user && user.favorites) {
-          isFavorite = user.favorites.some((favId) => favId.toString() === id);
-        }
+        isFavorite = !!userRecipe;
       }
     }
 

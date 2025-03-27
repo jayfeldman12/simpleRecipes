@@ -1,5 +1,5 @@
 import { NextApiResponse } from "next";
-import { UserRecipeOrderModel } from "../../models/UserRecipeOrder";
+import { UserRecipeModel } from "../../models/UserRecipe";
 import { AuthNextApiRequest, connectDB, withProtect } from "../../utils/auth";
 
 // @desc    Get user's favorite recipes
@@ -23,7 +23,7 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
     const Recipe = (await import("../../models/Recipe")).default;
 
     // Get favorite recipe IDs from the UserRecipeOrder model
-    const favoriteOrders = await UserRecipeOrderModel.find({
+    const favoriteOrders = await UserRecipeModel.find({
       userId: req.user._id.toString(),
       isFavorite: true,
     });
