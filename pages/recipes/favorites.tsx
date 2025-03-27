@@ -18,6 +18,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import ProtectedRoute from "../../src/components/ProtectedRoute";
 import SearchBar, { SearchBarHandle } from "../../src/components/SearchBar";
+import { useAuth } from "../../src/context/AuthContext";
 import { recipeAPI } from "../../src/services/api";
 import { Recipe as ImportedRecipe, Tag } from "../../src/types/recipe";
 import RecipeCard, { favoritesUpdated } from "../components/RecipeCard";
@@ -37,6 +38,7 @@ interface RecipesResponse {
 }
 
 const FavoritesPage = () => {
+  const { user } = useAuth();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -305,6 +307,22 @@ const FavoritesPage = () => {
     }
   };
 
+  // Handle deleting a recipe that belongs to the current user
+  const handleDeleteRecipe = async (recipeId: string) => {
+    if (!confirm("Are you sure you want to delete this recipe?")) {
+      return;
+    }
+
+    try {
+      await recipeAPI.deleteRecipe(recipeId);
+      // Update local state to remove the recipe
+      setRecipes(recipes.filter((recipe) => recipe._id !== recipeId));
+    } catch (err) {
+      console.error("Failed to delete recipe:", err);
+      alert("Failed to delete recipe. Please try again.");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -437,8 +455,23 @@ const FavoritesPage = () => {
                     <RecipeCard
                       key={recipe._id}
                       recipe={recipe}
-                      onDelete={(id) => handleRemoveFromFavorites(id)}
-                      isEditable={false}
+                      onDelete={(id) => {
+                        // Check if this is the user's own recipe
+                        if (
+                          recipe.user &&
+                          user &&
+                          user._id === recipe.user._id
+                        ) {
+                          // If it's user's own recipe, delete it
+                          handleDeleteRecipe(id);
+                        } else {
+                          // Otherwise just remove from favorites
+                          handleRemoveFromFavorites(id);
+                        }
+                      }}
+                      isEditable={
+                        !!(recipe.user && user && user._id === recipe.user._id)
+                      }
                       isDraggable={true}
                       onTagClick={(tagId) => handleTagSelect(tagId)}
                     />

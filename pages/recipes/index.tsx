@@ -285,6 +285,22 @@ export default function RecipeList() {
     setSelectedTags([]);
   };
 
+  // Handle delete action for user's own recipes
+  const handleDeleteRecipe = async (recipeId: string) => {
+    if (!confirm("Are you sure you want to delete this recipe?")) {
+      return;
+    }
+
+    try {
+      await recipeAPI.deleteRecipe(recipeId);
+      // Update local state to remove the recipe
+      setRecipes(recipes.filter((recipe) => recipe._id !== recipeId));
+    } catch (err) {
+      console.error("Failed to delete recipe:", err);
+      alert("Failed to delete recipe. Please try again.");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -410,8 +426,14 @@ export default function RecipeList() {
                     <RecipeCard
                       key={recipe._id}
                       recipe={recipe}
-                      onDelete={undefined}
-                      isEditable={false}
+                      onDelete={
+                        user && recipe.user && user._id === recipe.user._id
+                          ? handleDeleteRecipe
+                          : undefined
+                      }
+                      isEditable={
+                        !!(user && recipe.user && user._id === recipe.user._id)
+                      }
                       isDraggable={!!user}
                       onTagClick={(tagId) => handleTagSelect(tagId)}
                     />
