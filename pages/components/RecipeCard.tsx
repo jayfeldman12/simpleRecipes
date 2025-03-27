@@ -23,6 +23,7 @@ interface RecipeCardProps {
     sourceUrl?: string;
     order?: number;
     tags?: Array<{ _id: string; name: string }>;
+    user?: { _id: string; username: string };
   };
   from?: string;
   isEditable?: boolean;
@@ -288,32 +289,83 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
               </button>
             )}
           </div>
-          <div className="p-4 flex-grow flex flex-col">
-            <h3 className="text-lg font-semibold text-gray-800 mb-2 line-clamp-1">
-              {recipe?.title || "Untitled Recipe"}
-            </h3>
-            <p className="text-gray-600 text-sm line-clamp-2 flex-grow">
-              {recipe?.description || "No description available"}
-            </p>
+          <div className="px-4 pt-4 pb-2 flex-grow flex flex-col justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2 line-clamp-1">
+                {recipe?.title || "Untitled Recipe"}
+              </h3>
+              <p className="text-gray-600 text-sm line-clamp-2">
+                {recipe?.description || "No description available"}
+              </p>
+            </div>
 
-            {/* Display tags */}
-            {recipe?.tags && recipe.tags.length > 0 && (
-              <div className="mt-2 flex flex-wrap">
-                {recipe.tags.slice(0, 3).map((tag) => (
-                  <TagBadge
-                    key={tag._id}
-                    tag={tag}
-                    size="small"
-                    onClick={onTagClick ? () => onTagClick(tag._id) : undefined}
-                  />
-                ))}
-                {recipe.tags.length > 3 && (
-                  <span className="text-xs text-gray-500 ml-1 mt-0.5">
-                    +{recipe.tags.length - 3} more
-                  </span>
+            {/* Display tags and edit/delete icons in the same line */}
+            <div className="mt-3 flex flex-wrap items-center justify-between">
+              <div className="flex flex-wrap flex-1">
+                {recipe?.tags && recipe.tags.length > 0 && (
+                  <>
+                    {recipe.tags.slice(0, 3).map((tag) => (
+                      <TagBadge
+                        key={tag._id}
+                        tag={tag}
+                        size="small"
+                        onClick={
+                          onTagClick ? () => onTagClick(tag._id) : undefined
+                        }
+                      />
+                    ))}
+                    {recipe.tags.length > 3 && (
+                      <span className="text-xs text-gray-500 ml-1 mt-0.5">
+                        +{recipe.tags.length - 3} more
+                      </span>
+                    )}
+                  </>
                 )}
               </div>
-            )}
+
+              {isEditable && recipe && onDelete && (
+                <div className="flex space-x-2 ml-2">
+                  <Link
+                    href={`/recipes/edit/${recipe._id}`}
+                    className="text-green-700 hover:text-green-900"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
+                  >
+                    <span className="sr-only">Edit</span>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                    </svg>
+                  </Link>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (recipe._id && onDelete) onDelete(recipe._id);
+                    }}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <span className="sr-only">Delete</span>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       ) : (
@@ -407,77 +459,83 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
               </button>
             )}
           </div>
-          <div className="p-4 flex-grow flex flex-col">
-            <h3 className="text-lg font-semibold text-gray-800 mb-2 line-clamp-1">
-              {recipe?.title || "Untitled Recipe"}
-            </h3>
-            <p className="text-gray-600 text-sm line-clamp-2 flex-grow">
-              {recipe?.description || "No description available"}
-            </p>
+          <div className="p-4 flex-grow flex flex-col justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2 line-clamp-1">
+                {recipe?.title || "Untitled Recipe"}
+              </h3>
+              <p className="text-gray-600 text-sm line-clamp-2">
+                {recipe?.description || "No description available"}
+              </p>
+            </div>
 
-            {/* Display tags */}
-            {recipe?.tags && recipe.tags.length > 0 && (
-              <div className="mt-2 flex flex-wrap">
-                {recipe.tags.slice(0, 3).map((tag) => (
-                  <TagBadge
-                    key={tag._id}
-                    tag={tag}
-                    size="small"
-                    onClick={onTagClick ? () => onTagClick(tag._id) : undefined}
-                  />
-                ))}
-                {recipe.tags.length > 3 && (
-                  <span className="text-xs text-gray-500 ml-1 mt-0.5">
-                    +{recipe.tags.length - 3} more
-                  </span>
+            {/* Display tags and edit/delete icons in the same line */}
+            <div className="mt-3 flex flex-wrap items-center justify-between">
+              <div className="flex flex-wrap flex-1">
+                {recipe?.tags && recipe.tags.length > 0 && (
+                  <>
+                    {recipe.tags.slice(0, 3).map((tag) => (
+                      <TagBadge
+                        key={tag._id}
+                        tag={tag}
+                        size="small"
+                        onClick={
+                          onTagClick ? () => onTagClick(tag._id) : undefined
+                        }
+                      />
+                    ))}
+                    {recipe.tags.length > 3 && (
+                      <span className="text-xs text-gray-500 ml-1 mt-0.5">
+                        +{recipe.tags.length - 3} more
+                      </span>
+                    )}
+                  </>
                 )}
               </div>
-            )}
+
+              {isEditable && recipe && onDelete && (
+                <div className="flex space-x-2 ml-2">
+                  <Link
+                    href={`/recipes/edit/${recipe._id}`}
+                    className="text-green-700 hover:text-green-900"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <span className="sr-only">Edit</span>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                    </svg>
+                  </Link>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (recipe._id && onDelete) onDelete(recipe._id);
+                    }}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <span className="sr-only">Delete</span>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </Link>
-      )}
-
-      {isEditable && recipe && onDelete && (
-        <div className="px-4 pb-4 flex justify-end space-x-2">
-          <Link
-            href={`/recipes/edit/${recipe._id}`}
-            className="text-green-700 hover:text-green-900"
-            onClick={isDraggable ? (e) => e.stopPropagation() : undefined}
-          >
-            <span className="sr-only">Edit</span>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-            </svg>
-          </Link>
-          <button
-            onClick={(e) => {
-              if (isDraggable) {
-                e.stopPropagation();
-              }
-              if (recipe._id && onDelete) onDelete(recipe._id);
-            }}
-            className="text-red-500 hover:text-red-700"
-          >
-            <span className="sr-only">Delete</span>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
-        </div>
       )}
     </div>
   );
