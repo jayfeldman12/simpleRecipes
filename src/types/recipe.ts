@@ -31,6 +31,14 @@ export interface InstructionItem {
 }
 
 /**
+ * Represents a tag for recipes
+ */
+export interface Tag {
+  _id: string;
+  name: string;
+}
+
+/**
  * Represents a complete recipe
  */
 export interface Recipe {
@@ -52,4 +60,5 @@ export interface Recipe {
   updatedAt?: string;
   isFavorite?: boolean;
   originalImageUrl?: string;
+  tags?: Tag[];
 }

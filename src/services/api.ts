@@ -1,4 +1,4 @@
-import { Recipe } from "../types/recipe";
+import { Recipe, Tag } from "../types/recipe";
 
 const API_URL = "/api";
 
@@ -359,5 +359,11 @@ export const recipeAPI = {
       // Don't throw the error to prevent the UI flash
       // Instead, just log it and allow the function to complete
     }
+  },
+
+  // Get all tags
+  getAllTags: async (): Promise<Tag[]> => {
+    const response = await fetch(`${API_URL}/tags`);
+    return handleResponse<Tag[]>(response);
   },
 };

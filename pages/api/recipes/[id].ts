@@ -13,7 +13,9 @@ async function getRecipeById(
 
   try {
     const { id } = req.query;
-    const recipe = await Recipe.findById(id).populate("user", "username");
+    const recipe = await Recipe.findById(id)
+      .populate("user", "username")
+      .populate("tags", "name");
 
     if (!recipe) {
       return res.status(404).json({ message: "Recipe not found" });
@@ -81,6 +83,7 @@ async function updateRecipe(req: AuthNextApiRequest, res: NextApiResponse) {
       imageUrl,
       fullRecipe,
       sourceUrl,
+      tags,
     } = req.body;
 
     // Process the image URL if it has changed
@@ -146,8 +149,17 @@ async function updateRecipe(req: AuthNextApiRequest, res: NextApiResponse) {
     */
     recipe.sourceUrl = sourceUrl !== undefined ? sourceUrl : recipe.sourceUrl;
 
+    // Update tags if provided
+    if (tags) {
+      recipe.tags = tags;
+    }
+
     // Save updated recipe
     const updatedRecipe = await recipe.save();
+
+    // Populate tags in the response
+    await updatedRecipe.populate("tags", "name");
+
     return res.status(200).json(updatedRecipe);
   } catch (error) {
     console.error("Error updating recipe:", error);

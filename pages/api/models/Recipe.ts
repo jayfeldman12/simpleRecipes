@@ -1,6 +1,8 @@
 import mongoose, { Schema } from "mongoose";
 import { IngredientType, InstructionItem } from "../../../src/types/recipe";
 import dbConnect from "../utils/dbConnect";
+// Import Tag model to ensure it's registered in Mongoose
+import "./Tag";
 
 // Use 'as any' for the imported types to avoid TypeScript errors
 type IRecipeDocument = any;
@@ -74,6 +76,12 @@ const RecipeSchema = new Schema<IRecipeDocument>(
       type: String,
       required: false,
     },
+    tags: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "Tag",
+      },
+    ],
   },
   {
     timestamps: true,

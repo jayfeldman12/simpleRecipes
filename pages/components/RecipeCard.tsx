@@ -6,6 +6,7 @@ import { useRouter } from "next/router";
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../../src/context/AuthContext";
 import { recipeAPI } from "../../src/services/api";
+import TagBadge from "./TagBadge";
 
 // Create a global event bus for favorites updates
 export const favoritesUpdated = new EventTarget();
@@ -21,6 +22,7 @@ interface RecipeCardProps {
     isFavorite?: boolean;
     sourceUrl?: string;
     order?: number;
+    tags?: Array<{ _id: string; name: string }>;
   };
   from?: string;
   isEditable?: boolean;
@@ -28,6 +30,7 @@ interface RecipeCardProps {
   onFavoriteChange?: (id: string, isFavorite: boolean) => void;
   index?: number; // Added for drag and drop
   isDraggable?: boolean; // Added to control draggability
+  onTagClick?: (tagId: string) => void;
 }
 
 const RecipeCard: React.FC<RecipeCardProps> = ({
@@ -37,6 +40,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
   onDelete,
   onFavoriteChange,
   isDraggable = false,
+  onTagClick,
 }) => {
   const router = useRouter();
   const currentPath = router.pathname;
@@ -291,6 +295,25 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
             <p className="text-gray-600 text-sm line-clamp-2 flex-grow">
               {recipe?.description || "No description available"}
             </p>
+
+            {/* Display tags */}
+            {recipe?.tags && recipe.tags.length > 0 && (
+              <div className="mt-2 flex flex-wrap">
+                {recipe.tags.slice(0, 3).map((tag) => (
+                  <TagBadge
+                    key={tag._id}
+                    tag={tag}
+                    size="small"
+                    onClick={onTagClick ? () => onTagClick(tag._id) : undefined}
+                  />
+                ))}
+                {recipe.tags.length > 3 && (
+                  <span className="text-xs text-gray-500 ml-1 mt-0.5">
+                    +{recipe.tags.length - 3} more
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       ) : (
@@ -391,6 +414,25 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
             <p className="text-gray-600 text-sm line-clamp-2 flex-grow">
               {recipe?.description || "No description available"}
             </p>
+
+            {/* Display tags */}
+            {recipe?.tags && recipe.tags.length > 0 && (
+              <div className="mt-2 flex flex-wrap">
+                {recipe.tags.slice(0, 3).map((tag) => (
+                  <TagBadge
+                    key={tag._id}
+                    tag={tag}
+                    size="small"
+                    onClick={onTagClick ? () => onTagClick(tag._id) : undefined}
+                  />
+                ))}
+                {recipe.tags.length > 3 && (
+                  <span className="text-xs text-gray-500 ml-1 mt-0.5">
+                    +{recipe.tags.length - 3} more
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </Link>
       )}

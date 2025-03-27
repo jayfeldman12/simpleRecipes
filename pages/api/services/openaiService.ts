@@ -26,11 +26,13 @@ const openai = new OpenAI({
  * Extract recipe data from HTML content using OpenAI
  * @param htmlContent The HTML content containing the recipe
  * @param sourceUrl Optional source URL of the recipe
+ * @param availableTags Optional array of available tags to choose from
  * @returns A structured recipe object or null if extraction fails
  */
 export const extractRecipeFromHTML = async (
   htmlContent: string,
-  sourceUrl?: string
+  sourceUrl?: string,
+  availableTags?: string[]
 ): Promise<Recipe | null> => {
   try {
     console.log(
@@ -54,6 +56,18 @@ export const extractRecipeFromHTML = async (
       console.log(`Truncated HTML is now ${processedHtml.length} characters`);
     }
 
+    // Add tag suggestions to the prompt if available
+    let tagSuggestionText = "";
+    if (availableTags && availableTags.length > 0) {
+      tagSuggestionText = `
+      - tags: array (optional) - An array of relevant tags for the recipe. Choose from these available tags: ${availableTags.join(
+        ", "
+      )}.
+        For example, if the recipe is for a dessert that uses chocolate, you might include tags like: ["dessert", "chocolate"].
+        Only include tags that are in the provided list and are highly relevant to the recipe.
+      `;
+    }
+
     // Prepare prompt for OpenAI
     const prompt = `
       I need you to carefully extract the complete recipe information from the HTML content below. The HTML is very stripped down, and all p, div, span, h1, strong, etc tags have all been removed.
@@ -72,6 +86,7 @@ export const extractRecipeFromHTML = async (
       - cookingTime: number (optional) - Total cooking time in minutes. If not found, do not include this field.
       - servings: number (optional) - Number of servings. If not found, do not include this field.
       - imageUrl: string (optional) - URL of the recipe main image (hero image). Try to find the most relevant image, which will often be the first image in the article. If you cannot figure out the main image, try to use any image in the article. If you cannot find any images, leave as ""
+      ${tagSuggestionText}
       
       IMPORTANT:
       1. The response must ONLY contain the JSON object
@@ -227,6 +242,11 @@ export const extractRecipeFromHTML = async (
       user: { _id: "", username: "" }, // Will be set properly by the controller
       createdAt: new Date().toISOString(),
     };
+
+    // Include tags if provided in the response
+    if (parsedResponse.tags && Array.isArray(parsedResponse.tags)) {
+      recipe.tags = parsedResponse.tags;
+    }
 
     return recipe as Recipe;
   } catch (error) {

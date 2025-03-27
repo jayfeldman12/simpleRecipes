@@ -22,6 +22,7 @@ export interface IRecipeBase {
   updatedAt?: Date;
   fullRecipe?: string;
   sourceUrl?: string;
+  tags?: Types.ObjectId[];
 }
 
 // Document interfaces (for instance methods)

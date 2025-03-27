@@ -12,32 +12,45 @@ async function getRecipes(
   await connectDB();
 
   try {
-    // Check if the request includes a "all" parameter
-    const showAll = req.query.all === "true";
+    const { page = 1, limit = 12, tag = null, all = "true" } = req.query;
+    const showAll = String(all).toLowerCase() === "true";
 
-    // Get page from query params or default to 1
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = showAll ? 0 : 10; // Number of recipes per page, 0 means no limit
-    const skip = showAll ? 0 : (page - 1) * limit;
+    // Parse page and limit to integers
+    const pageNum = parseInt(String(page), 10);
+    const limitNum = parseInt(String(limit), 10);
 
-    // Get total count for pagination
-    const total = await Recipe.countDocuments();
-    const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
+    // Set up filter based on query parameters
+    const filter: any = {};
 
-    // Build query
-    let recipesQuery = Recipe.find().sort({ createdAt: -1 });
+    // Filter by tag if provided
+    if (tag) {
+      filter.tags = tag;
+    }
 
-    // Apply pagination only if not showing all
+    // Count total documents with the filter
+    const total = await Recipe.countDocuments(filter);
+    const totalPages = Math.ceil(total / limitNum);
+
+    // Get recipes using the filter, with pagination
+    let recipesQuery = Recipe.find(filter)
+      .populate("user", "username")
+      .populate("tags", "name")
+      .sort({ createdAt: -1 });
+
+    // Apply pagination only if showAll is false
     if (!showAll) {
-      recipesQuery = recipesQuery.skip(skip).limit(limit);
+      recipesQuery = recipesQuery
+        .skip((pageNum - 1) * limitNum)
+        .limit(limitNum);
     }
 
     // Execute query
-    const recipes = await recipesQuery.populate("user", "username");
+    const recipes = await recipesQuery;
 
-    // If user is authenticated, check which recipes are in their favorites and get order info
+    // Default to returning unpersonalized recipes
     let recipesWithUserData = recipes;
 
+    // If user is authenticated, check which recipes are in their favorites and get order info
     if ("user" in req && req.user) {
       // Import User model dynamically to avoid circular dependencies
       const User = (await import("../models/User")).default;
@@ -83,14 +96,14 @@ async function getRecipes(
         return res.status(200).json({
           recipes: sortedRecipes,
           totalPages,
-          currentPage: page,
+          currentPage: pageNum,
         });
       }
     }
 
     return res.status(200).json({
       recipes,
-      page,
+      page: pageNum,
       pages: totalPages,
       total,
     });
@@ -119,6 +132,7 @@ async function createRecipe(req: AuthNextApiRequest, res: NextApiResponse) {
       imageUrl,
       fullRecipe,
       sourceUrl,
+      tags,
     } = req.body;
 
     // Process ingredients if they're in the frontend format
@@ -180,10 +194,15 @@ async function createRecipe(req: AuthNextApiRequest, res: NextApiResponse) {
       // fullRecipe temporarily disabled to reduce API costs
       // fullRecipe: processedFullRecipe,
       sourceUrl,
+      tags: tags || [],
     });
 
     // Save to database
     const savedRecipe = await recipe.save();
+
+    // Populate tags in the response
+    await savedRecipe.populate("tags", "name");
+
     return res.status(201).json(savedRecipe);
   } catch (error) {
     console.error("Error creating recipe:", error);

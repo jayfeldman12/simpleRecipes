@@ -1,5 +1,6 @@
 import { NextApiResponse } from "next";
 import Recipe from "../models/Recipe";
+import Tag from "../models/Tag";
 import { fetchHtmlFromUrl } from "../services/htmlFetchService";
 import { extractRecipeFromHTML } from "../services/openaiService";
 import { AuthNextApiRequest, connectDB, withProtect } from "../utils/auth";
@@ -42,8 +43,12 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
       `Successfully fetched HTML from ${url}, length: ${htmlContent.length} characters`
     );
 
-    // Extract recipe data using OpenAI, passing the sourceUrl
-    const recipeData = await extractRecipeFromHTML(htmlContent, url);
+    // Get all available tags to help OpenAI tag the recipe
+    const availableTags = await Tag.find().sort({ name: 1 });
+    const tagNames = availableTags.map((tag) => tag.name);
+
+    // Extract recipe data using OpenAI, passing the sourceUrl and available tags
+    const recipeData = await extractRecipeFromHTML(htmlContent, url, tagNames);
     if (!recipeData) {
       return res
         .status(400)
@@ -51,6 +56,51 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
     }
 
     console.log("Successfully extracted recipe data:", recipeData.title);
+
+    // Convert tag names to tag IDs if tags are provided
+    if (
+      recipeData.tags &&
+      Array.isArray(recipeData.tags) &&
+      recipeData.tags.length > 0
+    ) {
+      try {
+        // Create a map of lowercase tag names to tag documents
+        const tagNameMap = new Map();
+        availableTags.forEach((tag) => {
+          tagNameMap.set(tag.name.toLowerCase(), tag._id);
+        });
+
+        // Map tag names to tag IDs
+        const tagIds = [];
+        // Use any here to bypass TypeScript's strict type checking
+        const tagArray = recipeData.tags as any[];
+
+        for (const tagItem of tagArray) {
+          let tagName = null;
+
+          if (typeof tagItem === "string") {
+            tagName = tagItem.toLowerCase();
+          } else if (
+            tagItem &&
+            typeof tagItem === "object" &&
+            "name" in tagItem
+          ) {
+            tagName = tagItem.name.toLowerCase();
+          }
+
+          if (tagName && tagNameMap.has(tagName)) {
+            tagIds.push(tagNameMap.get(tagName));
+          }
+        }
+
+        // Replace tag names with tag IDs
+        recipeData.tags = tagIds;
+      } catch (error) {
+        console.error("Error processing tags:", error);
+        // If there's an error, just remove the tags
+        delete recipeData.tags;
+      }
+    }
 
     // Process the image URL if provided
     let processedImageUrl = "default-recipe.jpg";

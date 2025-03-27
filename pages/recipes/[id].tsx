@@ -6,6 +6,7 @@ import { useAuth } from "../../src/context/AuthContext";
 import { recipeAPI } from "../../src/services/api";
 import { IngredientItem, IngredientType, Recipe } from "../../src/types/recipe";
 import { favoritesUpdated } from "../components/RecipeCard";
+import TagBadge from "../components/TagBadge";
 
 // Helper component to recursively render ingredients
 const RenderIngredients = ({
@@ -304,6 +305,17 @@ export default function RecipeDetail() {
                 )}
               </div>
               <p className="text-gray-600 mb-4">{recipe.description}</p>
+
+              {/* Display recipe tags if available */}
+              {recipe.tags && recipe.tags.length > 0 && (
+                <div className="mb-4">
+                  <div className="flex flex-wrap">
+                    {recipe.tags.map((tag) => (
+                      <TagBadge key={tag._id} tag={tag} />
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Display metadata: cooking time, servings, source */}
               <div className="flex flex-wrap gap-4 text-sm text-gray-600 mb-4">
