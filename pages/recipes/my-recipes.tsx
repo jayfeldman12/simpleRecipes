@@ -15,13 +15,14 @@ import {
 } from "@dnd-kit/sortable";
 import Head from "next/head";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ProtectedRoute from "../../src/components/ProtectedRoute";
-import SearchBar from "../../src/components/SearchBar";
+import SearchBar, { SearchBarHandle } from "../../src/components/SearchBar";
 import { useAuth } from "../../src/context/AuthContext";
 import { recipeAPI } from "../../src/services/api";
-import { Recipe as ImportedRecipe } from "../../src/types/recipe";
+import { Recipe as ImportedRecipe, Tag } from "../../src/types/recipe";
 import RecipeCard, { favoritesUpdated } from "../components/RecipeCard";
+import TagFilter from "../components/TagFilter";
 
 // Local recipe type with required _id
 interface Recipe extends Omit<ImportedRecipe, "_id"> {
@@ -36,6 +37,9 @@ const MyRecipesPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [allTags, setAllTags] = useState<Tag[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const searchBarRef = useRef<SearchBarHandle>(null);
 
   // Set up dnd-kit sensors
   const sensors = useSensors(
@@ -97,20 +101,90 @@ const MyRecipesPage = () => {
       }
     };
 
+    const fetchTags = async () => {
+      try {
+        const tags = await recipeAPI.getAllTags();
+        setAllTags(tags);
+      } catch (err) {
+        console.error("Error fetching tags:", err);
+      }
+    };
+
     fetchMyRecipes();
+    fetchTags();
   }, []);
 
-  // Filter recipes based on search query
-  const filteredRecipes = useMemo(() => {
-    if (!searchQuery) return recipes;
+  // Clear all filters function
+  const clearAllFilters = () => {
+    // Use the imperative handle to clear search
+    if (searchBarRef.current) {
+      searchBarRef.current.clear();
+    } else {
+      setSearchQuery("");
+    }
 
-    const query = searchQuery.toLowerCase();
-    return recipes.filter(
-      (recipe) =>
-        recipe.title.toLowerCase().includes(query) ||
-        recipe.description.toLowerCase().includes(query)
-    );
-  }, [recipes, searchQuery]);
+    setSelectedTags([]);
+  };
+
+  // Handle tag selection
+  const handleTagSelect = (tagId: string) => {
+    setSelectedTags((prevTags) => {
+      if (prevTags.includes(tagId)) {
+        return prevTags.filter((id) => id !== tagId);
+      } else {
+        return [...prevTags, tagId];
+      }
+    });
+  };
+
+  // Filter recipes based on search query and selected tags
+  const filteredRecipes = useMemo(() => {
+    let filtered = recipes;
+
+    // Filter by search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (recipe) =>
+          recipe.title.toLowerCase().includes(query) ||
+          recipe.description.toLowerCase().includes(query)
+      );
+    }
+
+    // Filter by selected tags
+    if (selectedTags.length > 0) {
+      filtered = filtered.filter(
+        (recipe) =>
+          recipe.tags &&
+          recipe.tags.some((tag) => selectedTags.includes(tag._id))
+      );
+    }
+
+    return filtered;
+  }, [recipes, searchQuery, selectedTags]);
+
+  // Calculate tag counts from all recipes
+  const tagCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+
+    recipes.forEach((recipe) => {
+      if (recipe.tags && recipe.tags.length > 0) {
+        recipe.tags.forEach((tag) => {
+          counts[tag._id] = (counts[tag._id] || 0) + 1;
+        });
+      }
+    });
+
+    return counts;
+  }, [recipes]);
+
+  // Get active filter count for UI
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (searchQuery) count++;
+    if (selectedTags.length > 0) count++;
+    return count;
+  }, [searchQuery, selectedTags]);
 
   // Get IDs for sortable context
   const recipeIds = useMemo(() => {
@@ -239,18 +313,15 @@ const MyRecipesPage = () => {
     <div className="bg-gray-50 min-h-screen">
       <Head>
         <title>My Recipes | Simple Recipes</title>
-        <meta
-          name="description"
-          content="View and manage your personal recipes"
-        />
+        <meta name="description" content="Manage and organize your recipes" />
       </Head>
 
       <main className="container mx-auto px-4 py-8">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-800">My Recipes</h1>
             <p className="text-gray-600 mt-1">
-              Manage your personal recipe collection
+              Manage and organize your recipe collection
             </p>
           </div>
 
@@ -258,8 +329,8 @@ const MyRecipesPage = () => {
             <SearchBar
               onSearch={setSearchQuery}
               className="w-full sm:w-64 lg:w-80"
+              ref={searchBarRef}
             />
-
             <Link
               href="/recipes/create"
               className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors flex items-center justify-center"
@@ -281,52 +352,87 @@ const MyRecipesPage = () => {
           </div>
         </div>
 
+        {/* Tag filter */}
+        <TagFilter
+          tags={allTags}
+          selectedTags={selectedTags}
+          onTagSelect={handleTagSelect}
+          className="mb-6"
+          recipeCounts={tagCounts}
+        />
+
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
             {error}
           </div>
         )}
 
-        {filteredRecipes.length === 0 ? (
+        {loading ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+          </div>
+        ) : filteredRecipes.length === 0 ? (
           <div className="bg-white p-8 rounded-lg shadow-md text-center">
-            {searchQuery ? (
+            {activeFilterCount > 0 ? (
               <>
                 <h2 className="text-xl font-semibold mb-2">No matches found</h2>
                 <p className="text-gray-600">
-                  No recipes match your search "{searchQuery}". Try a different
-                  search term.
+                  No recipes match your current filters. Try different search
+                  terms or tags.
                 </p>
+                <button
+                  onClick={clearAllFilters}
+                  className="mt-4 px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+                >
+                  Clear filters
+                </button>
               </>
             ) : (
               <>
                 <h2 className="text-xl font-semibold mb-2">No recipes yet</h2>
                 <p className="text-gray-600">
-                  Create your first recipe by clicking the 'Create Recipe'
+                  Create your first recipe by clicking the "Create Recipe"
                   button above!
                 </p>
               </>
             )}
           </div>
         ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext items={recipeIds} strategy={rectSortingStrategy}>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
-                {filteredRecipes.map((recipe) => (
-                  <RecipeCard
-                    key={recipe._id}
-                    recipe={recipe}
-                    onDelete={handleDeleteRecipe}
-                    isEditable={true}
-                    isDraggable={true}
-                  />
-                ))}
+          <>
+            {activeFilterCount > 0 && (
+              <div className="mb-4 flex items-center">
+                <span className="text-sm text-gray-600 mr-2">
+                  Showing {filteredRecipes.length} of {recipes.length} recipes
+                </span>
+                <button
+                  onClick={clearAllFilters}
+                  className="text-xs px-2 py-1 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+                >
+                  Clear filters
+                </button>
               </div>
-            </SortableContext>
-          </DndContext>
+            )}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext items={recipeIds} strategy={rectSortingStrategy}>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
+                  {filteredRecipes.map((recipe) => (
+                    <RecipeCard
+                      key={recipe._id}
+                      recipe={recipe}
+                      onDelete={handleDeleteRecipe}
+                      isEditable={true}
+                      isDraggable={true}
+                      onTagClick={(tagId) => handleTagSelect(tagId)}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          </>
         )}
       </main>
     </div>

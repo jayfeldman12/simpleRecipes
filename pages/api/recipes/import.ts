@@ -88,13 +88,17 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
             tagName = tagItem.name.toLowerCase();
           }
 
+          // Only add the tag if it exists in our database
           if (tagName && tagNameMap.has(tagName)) {
             tagIds.push(tagNameMap.get(tagName));
+          } else {
+            console.log(`Tag "${tagName}" not found in database, skipping`);
           }
         }
 
         // Replace tag names with tag IDs
         recipeData.tags = tagIds;
+        console.log(`Added ${tagIds.length} validated tags to recipe`);
       } catch (error) {
         console.error("Error processing tags:", error);
         // If there's an error, just remove the tags

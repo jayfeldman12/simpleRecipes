@@ -16,8 +16,8 @@ import {
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useEffect, useMemo, useState } from "react";
-import SearchBar from "../../src/components/SearchBar";
+import { useEffect, useMemo, useRef, useState } from "react";
+import SearchBar, { SearchBarHandle } from "../../src/components/SearchBar";
 import { useAuth } from "../../src/context/AuthContext";
 import { recipeAPI } from "../../src/services/api";
 import { Recipe as ImportedRecipe, Tag } from "../../src/types/recipe";
@@ -40,6 +40,7 @@ export default function RecipeList() {
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const { user } = useAuth();
+  const searchBarRef = useRef<SearchBarHandle>(null);
 
   // Set up dnd-kit sensors
   const sensors = useSensors(
@@ -272,6 +273,18 @@ export default function RecipeList() {
     }
   };
 
+  // Clear all filters function
+  const clearAllFilters = () => {
+    // Use the imperative handle to clear search
+    if (searchBarRef.current) {
+      searchBarRef.current.clear();
+    } else {
+      setSearchQuery("");
+    }
+
+    setSelectedTags([]);
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -303,6 +316,7 @@ export default function RecipeList() {
             <SearchBar
               onSearch={setSearchQuery}
               className="w-full sm:w-64 lg:w-80"
+              ref={searchBarRef}
             />
 
             {user && (
@@ -353,10 +367,7 @@ export default function RecipeList() {
                   terms or tags.
                 </p>
                 <button
-                  onClick={() => {
-                    setSearchQuery("");
-                    setSelectedTags([]);
-                  }}
+                  onClick={clearAllFilters}
                   className="mt-4 px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
                 >
                   Clear filters
@@ -381,10 +392,7 @@ export default function RecipeList() {
                   Showing {filteredRecipes.length} of {recipes.length} recipes
                 </span>
                 <button
-                  onClick={() => {
-                    setSearchQuery("");
-                    setSelectedTags([]);
-                  }}
+                  onClick={clearAllFilters}
                   className="text-xs px-2 py-1 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
                 >
                   Clear filters

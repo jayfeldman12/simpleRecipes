@@ -32,9 +32,11 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
     }
 
     // Get user's recipes
-    const recipes = await Recipe.find({ user: req.user._id }).sort({
-      createdAt: -1,
-    });
+    const recipes = await Recipe.find({ user: req.user._id })
+      .populate("tags", "name") // Populate tags field with name
+      .sort({
+        createdAt: -1,
+      });
 
     // Fetch recipe order information
     const recipeOrders = await UserRecipeModel.find({

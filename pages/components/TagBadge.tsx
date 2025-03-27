@@ -41,7 +41,7 @@ const TagBadge: React.FC<TagBadgeProps> = ({
     <span
       className={`${
         sizeClasses[size]
-      } ${selectedClass} rounded-full font-medium mr-1.5 mb-1.5 inline-block transition-colors ${
+      } ${selectedClass} rounded-full font-medium mr-1.5 inline-block transition-colors ${
         onClick ? "cursor-pointer" : ""
       } ${className}`}
       onClick={onClick ? handleClick : undefined}

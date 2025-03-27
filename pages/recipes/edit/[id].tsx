@@ -7,7 +7,9 @@ import {
   IngredientType,
   InstructionItem,
   Recipe as RecipeType,
+  Tag,
 } from "../../../src/types/recipe";
+import TagSelector from "../../components/TagSelector";
 
 export default function EditRecipe() {
   const router = useRouter();
@@ -15,6 +17,7 @@ export default function EditRecipe() {
   const [recipe, setRecipe] = useState<RecipeType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -23,6 +26,7 @@ export default function EditRecipe() {
     cookingTime: "",
     servings: "",
     imageUrl: "",
+    tags: [] as Tag[],
   });
 
   // Add refs object to store refs for textareas
@@ -68,6 +72,7 @@ export default function EditRecipe() {
           cookingTime: data.cookingTime?.toString() || "",
           servings: data.servings?.toString() || "",
           imageUrl: data.imageUrl || "",
+          tags: data.tags || [],
         });
       } catch (err) {
         console.error("Failed to fetch recipe:", err);
@@ -77,7 +82,17 @@ export default function EditRecipe() {
       }
     };
 
+    const fetchTags = async () => {
+      try {
+        const tags = await recipeAPI.getAllTags();
+        setAvailableTags(tags);
+      } catch (err) {
+        console.error("Error fetching tags:", err);
+      }
+    };
+
     fetchRecipe();
+    fetchTags();
   }, [id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -324,6 +339,20 @@ export default function EditRecipe() {
                 min="0"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tags
+            </label>
+            <TagSelector
+              availableTags={availableTags}
+              selectedTags={formData.tags || []}
+              onChange={(selected) =>
+                setFormData({ ...formData, tags: selected })
+              }
+              className="border border-gray-300 rounded-md p-3"
+            />
           </div>
 
           <div className="bg-gray-50 p-4 rounded-lg">

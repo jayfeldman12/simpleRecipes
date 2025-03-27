@@ -39,7 +39,8 @@ async function handler(req: AuthNextApiRequest, res: NextApiResponse) {
       _id: { $in: favoriteRecipeIds },
     })
       .sort({ createdAt: -1 })
-      .populate("user", "username");
+      .populate("user", "username")
+      .populate("tags", "name");
 
     // Create a map of recipe ID to order
     const orderMap = new Map();
