@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Tag } from "../../src/types/recipe";
 import TagBadge from "./TagBadge";
 
@@ -8,6 +8,7 @@ interface TagSelectorProps {
   onChange: (selected: Tag[]) => void;
   maxDisplay?: number;
   className?: string;
+  recipeCounts?: Record<string, number>;
 }
 
 const TagSelector: React.FC<TagSelectorProps> = ({
@@ -16,24 +17,42 @@ const TagSelector: React.FC<TagSelectorProps> = ({
   onChange,
   maxDisplay = 10,
   className = "",
+  recipeCounts = {},
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filteredTags, setFilteredTags] = useState(availableTags);
 
-  // Filter tags based on search term
+  // Sort tags by popularity initially
+  const initialSortedTags = useMemo(() => {
+    return [...availableTags].sort((a, b) => {
+      const countA = recipeCounts[a._id] || 0;
+      const countB = recipeCounts[b._id] || 0;
+      return countB - countA; // Descending order
+    });
+  }, [availableTags, recipeCounts]);
+
+  const [filteredTags, setFilteredTags] = useState<Tag[]>(initialSortedTags);
+
+  // Update filteredTags when availableTags or recipeCounts change
   useEffect(() => {
-    if (!searchTerm.trim()) {
-      setFilteredTags(availableTags);
-      return;
-    }
+    // Re-sort when availableTags or recipeCounts change
+    const sorted = [...availableTags].sort((a, b) => {
+      const countA = recipeCounts[a._id] || 0;
+      const countB = recipeCounts[b._id] || 0;
+      return countB - countA; // Descending order
+    });
 
-    const term = searchTerm.toLowerCase();
-    const filtered = availableTags.filter((tag) =>
-      tag.name.toLowerCase().includes(term)
-    );
-    setFilteredTags(filtered);
-  }, [searchTerm, availableTags]);
+    // Apply search filter if there is a search term
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      const filtered = sorted.filter((tag) =>
+        tag.name.toLowerCase().includes(term)
+      );
+      setFilteredTags(filtered);
+    } else {
+      setFilteredTags(sorted);
+    }
+  }, [availableTags, recipeCounts, searchTerm]);
 
   // Check if a tag is selected
   const isTagSelected = (tag: Tag) => {
@@ -90,7 +109,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({
           <div className="text-sm font-medium text-gray-700 mb-1">
             Selected:
           </div>
-          <div className="flex flex-wrap">
+          <div className="flex flex-wrap gap-y-2">
             {selectedTags.map((tag) => (
               <TagBadge
                 key={tag._id}
@@ -104,7 +123,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({
       )}
 
       {/* Available tags */}
-      <div className="flex flex-wrap">
+      <div className="flex flex-wrap gap-y-2">
         {displayTags.map((tag) => (
           <TagBadge
             key={tag._id}

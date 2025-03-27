@@ -18,6 +18,7 @@ export default function EditRecipe() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
+  const [tagCounts, setTagCounts] = useState<Record<string, number>>({});
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -86,6 +87,30 @@ export default function EditRecipe() {
       try {
         const tags = await recipeAPI.getAllTags();
         setAvailableTags(tags);
+
+        // Also fetch the recipes to calculate tag counts
+        const recipes = await recipeAPI.getRecipes();
+
+        // Calculate tag counts from all recipes
+        const counts: Record<string, number> = {};
+        if (Array.isArray(recipes)) {
+          recipes.forEach((recipe) => {
+            if (recipe.tags && recipe.tags.length > 0) {
+              recipe.tags.forEach((tag: { _id: string }) => {
+                counts[tag._id] = (counts[tag._id] || 0) + 1;
+              });
+            }
+          });
+        } else if (recipes && recipes.recipes) {
+          recipes.recipes.forEach((recipe) => {
+            if (recipe.tags && recipe.tags.length > 0) {
+              recipe.tags.forEach((tag: { _id: string }) => {
+                counts[tag._id] = (counts[tag._id] || 0) + 1;
+              });
+            }
+          });
+        }
+        setTagCounts(counts);
       } catch (err) {
         console.error("Error fetching tags:", err);
       }
@@ -352,6 +377,7 @@ export default function EditRecipe() {
                 setFormData({ ...formData, tags: selected })
               }
               className="border border-gray-300 rounded-md p-3"
+              recipeCounts={tagCounts}
             />
           </div>
 
@@ -644,22 +670,27 @@ export default function EditRecipe() {
             </div>
           </div>
 
-          <div className="flex justify-end gap-4 pt-2">
-            <button
-              type="button"
-              onClick={() => router.push(`/recipes/${recipe._id}`)}
-              className="px-4 py-2 border border-gray-300 text-gray-700 bg-white rounded-md hover:bg-gray-50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-5 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
-            >
-              {loading ? "Saving..." : "Save Changes"}
-            </button>
+          <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 sm:px-6 flex justify-end gap-4 z-10">
+            <div className="max-w-4xl w-full mx-auto flex justify-end gap-4">
+              <button
+                type="button"
+                onClick={() => router.push(`/recipes/${recipe._id}`)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 bg-white rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-5 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {loading ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
           </div>
+
+          {/* Add padding at the bottom to prevent content from being hidden behind the sticky buttons */}
+          <div className="pb-20"></div>
         </form>
       </div>
     </div>
