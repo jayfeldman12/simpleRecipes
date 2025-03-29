@@ -1,6 +1,13 @@
 import {
+  ArrowLeftIcon,
   ArrowsPointingInIcon,
   ArrowsPointingOutIcon,
+  ArrowTopRightOnSquareIcon,
+  ClockIcon,
+  HeartIcon,
+  PencilIcon,
+  TrashIcon,
+  UsersIcon,
 } from "@heroicons/react/24/outline";
 import Head from "next/head";
 import Link from "next/link";
@@ -238,22 +245,11 @@ export default function RecipeDetail() {
                   onClick={handleFavoriteToggle}
                   className="absolute top-4 right-4 p-2 rounded-full bg-white shadow-md hover:bg-gray-100"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
+                  <HeartIcon
                     className={`h-6 w-6 ${
-                      isFavorite ? "text-red-500" : "text-gray-400"
+                      isFavorite ? "text-red-500 fill-current" : "text-gray-400"
                     }`}
-                    fill={isFavorite ? "currentColor" : "none"}
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={isFavorite ? "0" : "2"}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                    />
-                  </svg>
+                  />
                 </button>
               )}
             </div>
@@ -271,39 +267,13 @@ export default function RecipeDetail() {
                       href={`/recipes/edit/${recipe._id}`}
                       className="p-2 text-blue-600 hover:text-blue-800"
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-6 w-6"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                        />
-                      </svg>
+                      <PencilIcon className="h-6 w-6" />
                     </Link>
                     <button
                       onClick={handleDelete}
                       className="p-2 text-red-600 hover:text-red-800"
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-6 w-6"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                        />
-                      </svg>
+                      <TrashIcon className="h-6 w-6" />
                     </button>
                   </div>
                 )}
@@ -325,40 +295,14 @@ export default function RecipeDetail() {
               <div className="flex flex-wrap gap-4 text-sm text-gray-600 mb-4">
                 {recipe.cookingTime && (
                   <div className="flex items-center">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5 mr-1 text-gray-500"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
+                    <ClockIcon className="h-5 w-5 mr-1 text-gray-500" />
                     <span>{recipe.cookingTime} minutes</span>
                   </div>
                 )}
 
                 {recipe.servings && (
                   <div className="flex items-center">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5 mr-1 text-gray-500"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                      />
-                    </svg>
+                    <UsersIcon className="h-5 w-5 mr-1 text-gray-500" />
                     <span>{recipe.servings} servings</span>
                   </div>
                 )}
@@ -373,20 +317,7 @@ export default function RecipeDetail() {
                     rel="noopener noreferrer"
                     className="text-blue-500 hover:underline flex items-center"
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5 mr-1"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                      />
-                    </svg>
+                    <ArrowTopRightOnSquareIcon className="h-5 w-5 mr-1" />
                     View Original Recipe
                   </a>
                 )}
@@ -436,40 +367,16 @@ export default function RecipeDetail() {
               href={previousPage}
               className="text-blue-500 flex items-center"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 mr-1"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
+              <ArrowLeftIcon className="h-5 w-5 mr-1" />
               Back
             </Link>
             {user && (
               <button onClick={handleFavoriteToggle} className="p-1">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
+                <HeartIcon
                   className={`h-5 w-5 ${
-                    isFavorite ? "text-red-500" : "text-gray-400"
+                    isFavorite ? "text-red-500 fill-current" : "text-gray-400"
                   }`}
-                  fill={isFavorite ? "currentColor" : "none"}
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={isFavorite ? "0" : "2"}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                  />
-                </svg>
+                />
               </button>
             )}
           </div>
