@@ -401,21 +401,23 @@ export default function RecipeDetail() {
             } overflow-y-auto`}
           >
             <div className="sticky top-0 bg-gray-50 z-10 py-1 px-3 border-b border-gray-100 flex justify-between items-center">
-              <h2 className="text-lg font-semibold">Ingredients</h2>
               <button
                 onClick={() => toggleExpand("ingredients")}
-                className="p-1 text-gray-500 hover:text-gray-700"
+                className="flex-1 text-left flex justify-between items-center"
                 aria-label={
                   expandedSection === "ingredients"
                     ? "Collapse ingredients"
                     : "Expand ingredients"
                 }
               >
-                {expandedSection === "ingredients" ? (
-                  <ArrowsPointingInIcon className="h-5 w-5" />
-                ) : (
-                  <ArrowsPointingOutIcon className="h-5 w-5" />
-                )}
+                <h2 className="text-lg font-semibold">Ingredients</h2>
+                <span className="p-1 text-gray-500 hover:text-gray-700">
+                  {expandedSection === "ingredients" ? (
+                    <ArrowsPointingInIcon className="h-5 w-5" />
+                  ) : (
+                    <ArrowsPointingOutIcon className="h-5 w-5" />
+                  )}
+                </span>
               </button>
             </div>
             <div className="p-3 pt-2">
@@ -434,21 +436,23 @@ export default function RecipeDetail() {
             } overflow-y-auto`}
           >
             <div className="sticky top-0 bg-white z-10 py-1 px-3 border-b border-gray-100 flex justify-between items-center">
-              <h2 className="text-lg font-semibold">Instructions</h2>
               <button
                 onClick={() => toggleExpand("instructions")}
-                className="p-1 text-gray-500 hover:text-gray-700"
+                className="flex-1 text-left flex justify-between items-center"
                 aria-label={
                   expandedSection === "instructions"
                     ? "Collapse instructions"
                     : "Expand instructions"
                 }
               >
-                {expandedSection === "instructions" ? (
-                  <ArrowsPointingInIcon className="h-5 w-5" />
-                ) : (
-                  <ArrowsPointingOutIcon className="h-5 w-5" />
-                )}
+                <h2 className="text-lg font-semibold">Instructions</h2>
+                <span className="p-1 text-gray-500 hover:text-gray-700">
+                  {expandedSection === "instructions" ? (
+                    <ArrowsPointingInIcon className="h-5 w-5" />
+                  ) : (
+                    <ArrowsPointingOutIcon className="h-5 w-5" />
+                  )}
+                </span>
               </button>
             </div>
             <ol className="space-y-3 p-3 pt-2">
