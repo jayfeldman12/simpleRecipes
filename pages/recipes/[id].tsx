@@ -1,3 +1,7 @@
+import {
+  ArrowsPointingInIcon,
+  ArrowsPointingOutIcon,
+} from "@heroicons/react/24/outline";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -500,29 +504,11 @@ export default function RecipeDetail() {
                     : "Expand ingredients"
                 }
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  {expandedSection === "ingredients" ? (
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 15l7-7 7 7"
-                    />
-                  ) : (
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  )}
-                </svg>
+                {expandedSection === "ingredients" ? (
+                  <ArrowsPointingInIcon className="h-5 w-5" />
+                ) : (
+                  <ArrowsPointingOutIcon className="h-5 w-5" />
+                )}
               </button>
             </div>
             <div className="p-3 pt-2">
@@ -551,29 +537,11 @@ export default function RecipeDetail() {
                     : "Expand instructions"
                 }
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  {expandedSection === "instructions" ? (
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 15l7-7 7 7"
-                    />
-                  ) : (
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  )}
-                </svg>
+                {expandedSection === "instructions" ? (
+                  <ArrowsPointingInIcon className="h-5 w-5" />
+                ) : (
+                  <ArrowsPointingOutIcon className="h-5 w-5" />
+                )}
               </button>
             </div>
             <ol className="space-y-3 p-3 pt-2">
