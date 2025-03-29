@@ -37,6 +37,31 @@ export default function EditRecipe() {
   // Add a state to track mobile view
   const [isMobile, setIsMobile] = useState(false);
 
+  // Add a function to calculate text height
+  const calculateTextHeight = (text: string): number => {
+    // Create a temporary div to measure text height
+    const div = document.createElement("div");
+    div.style.visibility = "hidden";
+    div.style.position = "absolute";
+    div.style.whiteSpace = "pre-wrap";
+    div.style.width = "100%";
+    div.style.padding = "8px 12px";
+    div.style.fontSize = "16px";
+    div.style.lineHeight = "1.5";
+    div.style.border = "1px solid #d1d5db";
+    div.style.borderRadius = "0.375rem";
+    div.textContent = text;
+    document.body.appendChild(div);
+    const height = div.offsetHeight;
+    document.body.removeChild(div);
+    return height;
+  };
+
+  // Add state to track textarea heights
+  const [textareaHeights, setTextareaHeights] = useState<{
+    [key: number]: number;
+  }>({});
+
   // Update useEffect to detect mobile view
   useEffect(() => {
     const checkMobile = () => {
@@ -234,10 +259,25 @@ export default function EditRecipe() {
     }
   };
 
+  // Update useEffect to calculate heights when instructions change
+  useEffect(() => {
+    const newHeights: { [key: number]: number } = {};
+    formData.instructions.forEach((instruction, index) => {
+      const height = calculateTextHeight(instruction.text);
+      newHeights[index] = height;
+    });
+    setTextareaHeights(newHeights);
+  }, [formData.instructions]);
+
+  // Update the handleInstructionChange function
   const handleInstructionChange = (index: number, value: string) => {
     const newInstructions = [...formData.instructions];
     newInstructions[index] = { ...newInstructions[index], text: value };
     setFormData({ ...formData, instructions: newInstructions });
+
+    // Calculate new height for this textarea
+    const height = calculateTextHeight(value);
+    setTextareaHeights((prev) => ({ ...prev, [index]: height }));
 
     // Schedule height adjustment for the next render
     setTimeout(() => adjustTextareaHeight(index), 0);
@@ -591,12 +631,10 @@ export default function EditRecipe() {
                       if (el) textareaRefs.current[index] = el;
                     }}
                     className={`flex-1 px-3 sm:px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isMobile
-                        ? "max-h-[120px] overflow-auto"
-                        : "overflow-hidden"
+                      isMobile ? "overflow-auto" : "overflow-hidden"
                     }`}
                     placeholder={`Step ${index + 1}`}
-                    style={{ minHeight: "60px" }}
+                    rows={isMobile ? (textareaHeights[index] > 60 ? 3 : 2) : 2}
                     required
                   />
                   <button
