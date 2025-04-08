@@ -81,6 +81,23 @@ export default function RecipeDetail() {
   const [expandedSection, setExpandedSection] = useState<
     "ingredients" | "instructions" | null
   >(null);
+  const [imageError, setImageError] = useState(false);
+
+  // Generate a consistent color based on recipe title
+  const getGradientColors = (title: string) => {
+    // Create a simple hash from the title
+    const hash = title.split("").reduce((hash, char) => {
+      return char.charCodeAt(0) + ((hash << 5) - hash);
+    }, 0);
+
+    // Use the hash to determine a hue value (0-360)
+    const hue = Math.abs(hash % 360);
+
+    // Return a gradient using this hue
+    return `linear-gradient(135deg, hsl(${hue}, 70%, 60%) 0%, hsl(${
+      (hue + 40) % 360
+    }, 70%, 45%) 100%)`;
+  };
 
   useEffect(() => {
     // Get the previous page from the query parameter
@@ -99,6 +116,7 @@ export default function RecipeDetail() {
         const data = await recipeAPI.getRecipeById(id as string);
         setRecipe(data);
         setIsFavorite(data.isFavorite || false);
+        setImageError(!data.imageUrl);
       } catch (err) {
         console.error("Failed to fetch recipe:", err);
         setError("Failed to load recipe details. Please try again later.");
@@ -195,6 +213,10 @@ export default function RecipeDetail() {
     }
   };
 
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -216,6 +238,9 @@ export default function RecipeDetail() {
     );
   }
 
+  // Get placeholder gradient for this recipe
+  const placeholderGradient = getGradientColors(recipe.title || "Recipe");
+
   return (
     <>
       <Head>
@@ -233,13 +258,37 @@ export default function RecipeDetail() {
         </Link>
 
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          {recipe.imageUrl && (
+          {recipe.imageUrl && !imageError ? (
             <div className="h-64 sm:h-80 relative">
               <img
                 src={recipe.imageUrl}
                 alt={recipe.title}
                 className="w-full h-full object-cover"
+                onError={handleImageError}
               />
+              {user && (
+                <button
+                  onClick={handleFavoriteToggle}
+                  className="absolute top-4 right-4 p-2 rounded-full bg-white shadow-md hover:bg-gray-100"
+                >
+                  <HeartIcon
+                    className={`h-6 w-6 ${
+                      isFavorite ? "text-red-500 fill-current" : "text-gray-400"
+                    }`}
+                  />
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="h-64 sm:h-80 relative">
+              <div
+                className="w-full h-full flex items-center justify-center text-white p-6"
+                style={{ background: placeholderGradient }}
+              >
+                <h1 className="text-3xl font-bold text-center">
+                  {recipe.title}
+                </h1>
+              </div>
               {user && (
                 <button
                   onClick={handleFavoriteToggle}
@@ -388,6 +437,27 @@ export default function RecipeDetail() {
             {recipe.description}
           </p>
         </div>
+
+        {/* Add mobile image or placeholder */}
+        {recipe.imageUrl && !imageError ? (
+          <div className="w-full h-48 flex-shrink-0">
+            <img
+              src={recipe.imageUrl}
+              alt={recipe.title}
+              className="w-full h-full object-cover"
+              onError={handleImageError}
+            />
+          </div>
+        ) : (
+          <div className="w-full h-48 flex-shrink-0">
+            <div
+              className="w-full h-full flex items-center justify-center text-white p-4"
+              style={{ background: placeholderGradient }}
+            >
+              <h2 className="text-2xl font-bold text-center">{recipe.title}</h2>
+            </div>
+          </div>
+        )}
 
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Ingredients Section */}

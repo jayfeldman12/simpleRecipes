@@ -56,12 +56,31 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
   const [isFavorite, setIsFavorite] = useState<boolean>(false);
   // Safe default for image
   const [imgSrc, setImgSrc] = useState<string>("/images/default-recipe.jpg");
+  const [imageError, setImageError] = useState<boolean>(false);
   const [wasDragging, setWasDragging] = useState<boolean>(false);
 
   // Defensive check for undefined recipe during prerendering
   if (!recipe || !recipe._id) {
     return null;
   }
+
+  // Generate a consistent color based on recipe title
+  const getGradientColors = (title: string) => {
+    // Create a simple hash from the title
+    const hash = title.split("").reduce((hash, char) => {
+      return char.charCodeAt(0) + ((hash << 5) - hash);
+    }, 0);
+
+    // Use the hash to determine a hue value (0-360)
+    const hue = Math.abs(hash % 360);
+
+    // Return a gradient using this hue
+    return `linear-gradient(135deg, hsl(${hue}, 70%, 60%) 0%, hsl(${
+      (hue + 40) % 360
+    }, 70%, 45%) 100%)`;
+  };
+
+  const placeholderGradient = getGradientColors(recipe?.title || "Recipe");
 
   // Setup drag and drop with dnd-kit
   const {
@@ -105,6 +124,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
 
   // Initialize image src safely
   useEffect(() => {
+    setImageError(false);
     if (recipe?.imageUrl) {
       // Check if the image URL is absolute or relative
       if (
@@ -117,8 +137,8 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
         setImgSrc(`/api/${recipe.imageUrl}`);
       }
     } else {
-      // Default image
-      setImgSrc("/images/default-recipe.jpg");
+      // No image, will use placeholder
+      setImageError(true);
     }
   }, [recipe?.imageUrl]);
 
@@ -199,6 +219,10 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
     }
   };
 
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
   const cardContent = (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200 flex flex-col h-full">
       {isDraggable ? (
@@ -208,12 +232,24 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
           onClick={handleCardClick}
         >
           <div className="relative h-48">
-            <Image
-              src={imgSrc}
-              alt={recipe?.title || "Recipe"}
-              fill
-              style={{ objectFit: "cover" }}
-            />
+            {imageError ? (
+              <div
+                className="absolute inset-0 flex items-center justify-center p-4"
+                style={{ background: placeholderGradient }}
+              >
+                <h3 className="text-white text-center text-xl font-semibold line-clamp-3">
+                  {recipe?.title || "Recipe"}
+                </h3>
+              </div>
+            ) : (
+              <Image
+                src={imgSrc}
+                alt={recipe?.title || "Recipe"}
+                fill
+                style={{ objectFit: "cover" }}
+                onError={handleImageError}
+              />
+            )}
             {recipe?.cookingTime && (
               <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-sm flex items-center">
                 <ClockIcon className="h-4 w-4 mr-1" />
@@ -330,12 +366,24 @@ const RecipeCard: React.FC<RecipeCardProps> = ({
           className="block flex-grow"
         >
           <div className="relative h-48">
-            <Image
-              src={imgSrc}
-              alt={recipe?.title || "Recipe"}
-              fill
-              style={{ objectFit: "cover" }}
-            />
+            {imageError ? (
+              <div
+                className="absolute inset-0 flex items-center justify-center p-4"
+                style={{ background: placeholderGradient }}
+              >
+                <h3 className="text-white text-center text-xl font-semibold line-clamp-3">
+                  {recipe?.title || "Recipe"}
+                </h3>
+              </div>
+            ) : (
+              <Image
+                src={imgSrc}
+                alt={recipe?.title || "Recipe"}
+                fill
+                style={{ objectFit: "cover" }}
+                onError={handleImageError}
+              />
+            )}
             {recipe?.cookingTime && (
               <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-sm flex items-center">
                 <ClockIcon className="h-4 w-4 mr-1" />
