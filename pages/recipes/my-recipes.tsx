@@ -86,10 +86,14 @@ const MyRecipesPage = () => {
 
         // Sort recipes by order only
         const sortedRecipes = processed.sort((a: Recipe, b: Recipe) => {
-          return (
-            (typeof a.order === "number" ? a.order : Number.MAX_SAFE_INTEGER) -
-            (typeof b.order === "number" ? b.order : Number.MAX_SAFE_INTEGER)
-          );
+          // Get order values with appropriate defaults
+          const orderA =
+            typeof a.order === "number" ? a.order : Number.MAX_SAFE_INTEGER;
+          const orderB =
+            typeof b.order === "number" ? b.order : Number.MAX_SAFE_INTEGER;
+
+          // Compare orders - ascending order means smaller values appear first
+          return orderA - orderB;
         });
 
         setRecipes(sortedRecipes);
@@ -205,12 +209,14 @@ const MyRecipesPage = () => {
 
           // Re-sort the recipes by order only
           return updatedRecipes.sort((a: Recipe, b: Recipe) => {
-            return (
-              (typeof a.order === "number"
-                ? a.order
-                : Number.MAX_SAFE_INTEGER) -
-              (typeof b.order === "number" ? b.order : Number.MAX_SAFE_INTEGER)
-            );
+            // Get order values with appropriate defaults
+            const orderA =
+              typeof a.order === "number" ? a.order : Number.MAX_SAFE_INTEGER;
+            const orderB =
+              typeof b.order === "number" ? b.order : Number.MAX_SAFE_INTEGER;
+
+            // Compare orders - ascending order means smaller values appear first
+            return orderA - orderB;
           });
         });
       }

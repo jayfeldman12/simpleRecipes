@@ -146,13 +146,21 @@ export const recipeAPI = {
       throw new Error("Authentication required");
     }
 
+    // Always set order to a negative value to ensure new recipes appear at the top
+    // We'll use the current timestamp (negative) to ensure reverse chronological order
+    // Current time in milliseconds as a negative number will ensure newer recipes have smaller values
+    const recipeWithOrder = {
+      ...recipeData,
+      order: -1 * Date.now(),
+    };
+
     const response = await fetch(`${API_URL}/recipes`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify(recipeData),
+      body: JSON.stringify(recipeWithOrder),
     });
 
     return handleResponse<Recipe>(response);
@@ -295,7 +303,7 @@ export const recipeAPI = {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ url, order: -1 * Date.now() }),
     });
 
     return handleResponse(response);
@@ -321,7 +329,7 @@ export const recipeAPI = {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, order: -1 * Date.now() }),
     });
 
     return handleResponse(response);
