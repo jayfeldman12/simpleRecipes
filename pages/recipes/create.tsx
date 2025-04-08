@@ -2,9 +2,12 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useState } from "react";
+import CollapsibleSection from "../../src/components/CollapsibleSection";
 import CreateManuallyForm from "../../src/components/CreateManuallyForm";
+import PasteTextForm from "../../src/components/PasteTextForm";
 import ProtectedRoute from "../../src/components/ProtectedRoute";
 import QuickImportForm from "../../src/components/QuickImportForm";
+import UploadFileForm from "../../src/components/UploadFileForm";
 import { Recipe } from "../../src/types/recipe";
 
 const CreateRecipePage = () => {
@@ -14,7 +17,9 @@ const CreateRecipePage = () => {
   );
 
   // UI state for expandable sections
-  const [activeSection, setActiveSection] = useState<"manual" | null>(null);
+  const [activeSection, setActiveSection] = useState<
+    "manual" | "paste" | "upload" | null
+  >(null);
 
   const handleRecipeCreated = (recipeId: string) => {
     router.push(`/recipes/${recipeId}`);
@@ -25,7 +30,7 @@ const CreateRecipePage = () => {
     setActiveSection("manual");
   };
 
-  const toggleSection = (section: "manual") => {
+  const toggleSection = (section: "manual" | "paste" | "upload") => {
     if (activeSection === section) {
       setActiveSection(null);
     } else {
@@ -63,35 +68,35 @@ const CreateRecipePage = () => {
             />
           </div>
 
-          {/* Manual creation section */}
-          <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-            <div
-              className="flex justify-between items-center cursor-pointer"
-              onClick={() => toggleSection("manual")}
-            >
-              <h2 className="text-xl font-semibold">
-                {importedRecipe ? "Edit Imported Recipe" : "Create Manually"}
-              </h2>
-              <button
-                className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                  activeSection === "manual"
-                    ? "bg-indigo-100 text-indigo-700"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-              >
-                {activeSection === "manual" ? "Hide" : "Show"}
-              </button>
-            </div>
+          {/* Paste text/HTML section */}
+          <CollapsibleSection
+            title="Paste Text/HTML"
+            isActive={activeSection === "paste"}
+            onToggle={() => toggleSection("paste")}
+          >
+            <PasteTextForm />
+          </CollapsibleSection>
 
-            {activeSection === "manual" && (
-              <div className="mt-6">
-                <CreateManuallyForm
-                  initialData={importedRecipe || undefined}
-                  onSuccess={handleRecipeCreated}
-                />
-              </div>
-            )}
-          </div>
+          {/* Upload file section */}
+          <CollapsibleSection
+            title="Upload File"
+            isActive={activeSection === "upload"}
+            onToggle={() => toggleSection("upload")}
+          >
+            <UploadFileForm />
+          </CollapsibleSection>
+
+          {/* Manual creation section */}
+          <CollapsibleSection
+            title={importedRecipe ? "Edit Imported Recipe" : "Create Manually"}
+            isActive={activeSection === "manual"}
+            onToggle={() => toggleSection("manual")}
+          >
+            <CreateManuallyForm
+              initialData={importedRecipe || undefined}
+              onSuccess={handleRecipeCreated}
+            />
+          </CollapsibleSection>
         </div>
       </div>
     </ProtectedRoute>
