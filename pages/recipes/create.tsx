@@ -74,7 +74,10 @@ const CreateRecipePage = () => {
             isActive={activeSection === "paste"}
             onToggle={() => toggleSection("paste")}
           >
-            <PasteTextForm />
+            <PasteTextForm
+              onImportSuccess={handleRecipeCreated}
+              onImportForEdit={handleImportForEdit}
+            />
           </CollapsibleSection>
 
           {/* Upload file section */}

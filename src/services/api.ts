@@ -301,6 +301,32 @@ export const recipeAPI = {
     return handleResponse(response);
   },
 
+  // Import a recipe from pasted text or HTML (requires authentication)
+  importRecipeFromText: async (
+    content: string
+  ): Promise<{
+    recipe: Partial<Recipe>;
+    recipeId?: string;
+    message?: string;
+  }> => {
+    const token = getAuthToken();
+
+    if (!token) {
+      throw new Error("Authentication required");
+    }
+
+    const response = await fetch(`${API_URL}/recipes/import-text`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ content }),
+    });
+
+    return handleResponse(response);
+  },
+
   // Update user recipe order and favorite status
   updateUserRecipeOrder: async (
     recipeId: string,

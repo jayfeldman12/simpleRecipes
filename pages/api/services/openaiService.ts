@@ -24,36 +24,36 @@ const openai = new OpenAI({
 
 /**
  * Extract recipe data from HTML content using OpenAI
- * @param htmlContent The HTML content containing the recipe
+ * @param content The content (HTML or text) containing the recipe
  * @param sourceUrl Optional source URL of the recipe
  * @param availableTags Optional array of available tags to choose from
  * @returns A structured recipe object or null if extraction fails
  */
 export const extractRecipeFromHTML = async (
-  htmlContent: string,
+  content: string,
   sourceUrl?: string,
   availableTags?: string[]
 ): Promise<Recipe | null> => {
   try {
-    console.log(
-      `Received optimized HTML content length: ${htmlContent.length} characters`
-    );
+    console.log(`Received content length: ${content.length} characters`);
 
     // Check if we need to truncate content for token limits
     const contentLimit = 60000;
-    let processedHtml = htmlContent;
+    let processedContent = content;
 
-    if (processedHtml.length > contentLimit) {
+    if (processedContent.length > contentLimit) {
       console.log(
-        `HTML content still exceeds OpenAI token limit (${processedHtml.length} chars). Truncating...`
+        `Content exceeds OpenAI token limit (${processedContent.length} chars). Truncating...`
       );
 
       // Keep beginning, truncate end where comments usually are
-      processedHtml =
-        processedHtml.substring(0, contentLimit) +
+      processedContent =
+        processedContent.substring(0, contentLimit) +
         "\n[CONTENT TRUNCATED FOR LENGTH]\n";
 
-      console.log(`Truncated HTML is now ${processedHtml.length} characters`);
+      console.log(
+        `Truncated content is now ${processedContent.length} characters`
+      );
     }
 
     // Add tag suggestions to the prompt if available
@@ -70,9 +70,9 @@ export const extractRecipeFromHTML = async (
 
     // Prepare prompt for OpenAI
     const prompt = `
-      I need you to carefully extract the complete recipe information from the HTML content below. The HTML is very stripped down, and all p, div, span, h1, strong, etc tags have all been removed.
+      I need you to carefully extract the complete recipe information from the text or HTML content below. If HTML was provided, note that it may be very stripped down, and all p, div, span, h1, strong, etc tags may have been removed.
       
-      You're looking for a recipe in this HTML. If you can identify a recipe:
+      You're looking for a recipe in this content. If you can identify a recipe:
       
       Return a valid JSON object with these fields:
       - title: string (required) - The recipe title
@@ -91,7 +91,7 @@ export const extractRecipeFromHTML = async (
       IMPORTANT:
       1. The response must ONLY contain the JSON object
       2. Look for ingredients lists, preparation steps, cooking times, and recipe metadata
-      3. If the HTML doesn't contain recipe information, return { "error": "No recipe found" }
+      3. If the content doesn't contain recipe information, return { "error": "No recipe found" }
       4. Maintain the original measurements and ingredient names
       5. For ingredients with sections, use this structure:
          {
@@ -108,8 +108,8 @@ export const extractRecipeFromHTML = async (
            ]
          }
       
-      Here's the HTML content:
-      ${processedHtml}
+      Here's the content:
+      ${processedContent}
     `;
 
     console.log("Sending request to OpenAI with prompt length:", prompt.length);
@@ -154,9 +154,12 @@ export const extractRecipeFromHTML = async (
     // Check for error
     if (parsedResponse.error) {
       console.error("OpenAI extraction error:", parsedResponse.error);
-      console.log("Original HTML length:", htmlContent.length);
-      console.log("Processed HTML length:", processedHtml.length);
-      console.log("HTML sample:", processedHtml.substring(0, 500) + "...");
+      console.log("Original content length:", content.length);
+      console.log("Processed content length:", processedContent.length);
+      console.log(
+        "Content sample:",
+        processedContent.substring(0, 500) + "..."
+      );
       return null;
     }
 
@@ -237,7 +240,7 @@ export const extractRecipeFromHTML = async (
       servings: parsedResponse.servings,
       imageUrl: parsedResponse.imageUrl || "default-recipe.jpg",
       // fullRecipe temporarily disabled to reduce API costs
-      // fullRecipe: parsedResponse.fullRecipe || htmlContent,
+      // fullRecipe: parsedResponse.fullRecipe || content,
       sourceUrl: sourceUrl || "",
       user: { _id: "", username: "" }, // Will be set properly by the controller
       createdAt: new Date().toISOString(),
