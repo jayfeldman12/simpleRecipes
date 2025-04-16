@@ -68,9 +68,9 @@ const CreateRecipePage = () => {
             />
           </div>
 
-          {/* Paste text/HTML section */}
+          {/* Paste text section */}
           <CollapsibleSection
-            title="Paste Text/HTML"
+            title="Paste Text"
             isActive={activeSection === "paste"}
             onToggle={() => toggleSection("paste")}
           >
