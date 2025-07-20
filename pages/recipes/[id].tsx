@@ -438,26 +438,7 @@ export default function RecipeDetail() {
           </p>
         </div>
 
-        {/* Add mobile image or placeholder */}
-        {recipe.imageUrl && !imageError ? (
-          <div className="w-full h-48 flex-shrink-0">
-            <img
-              src={recipe.imageUrl}
-              alt={recipe.title}
-              className="w-full h-full object-cover"
-              onError={handleImageError}
-            />
-          </div>
-        ) : (
-          <div className="w-full h-48 flex-shrink-0">
-            <div
-              className="w-full h-full flex items-center justify-center text-white p-4"
-              style={{ background: placeholderGradient }}
-            >
-              <h2 className="text-2xl font-bold text-center">{recipe.title}</h2>
-            </div>
-          </div>
-        )}
+        {/* Mobile hero image removed to optimize space */}
 
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Ingredients Section */}
