@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { useState } from "react";
 import { recipeAPI } from "../services/api";
 import { Recipe } from "../types/recipe";
+import AuthErrorBanner from "./AuthErrorBanner";
 
 type PasteTextFormProps = {
   onImportSuccess?: (recipeId: string) => void;
@@ -91,11 +92,7 @@ const PasteTextForm = ({
         </div>
       )}
 
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
-          {error}
-        </div>
-      )}
+      {error && <AuthErrorBanner error={error} className="mb-6" />}
 
       <div className="mb-4">
         <label

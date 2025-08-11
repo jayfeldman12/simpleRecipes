@@ -12,9 +12,11 @@ const Login = () => {
   const { login, loading, error, clearError, user } = useAuth();
   const router = useRouter();
 
-  // Redirect if user is already logged in
+  // Redirect if user is already logged in, unless explicitly reauthenticating
   useEffect(() => {
-    if (user) {
+    if (!router.isReady) return;
+    const isReauth = router.query.reauth === "1";
+    if (user && !isReauth) {
       router.push("/");
     }
   }, [user, router]);

@@ -16,6 +16,7 @@ import {
 import Head from "next/head";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import AuthErrorBanner from "../../src/components/AuthErrorBanner";
 import ProtectedRoute from "../../src/components/ProtectedRoute";
 import SearchBar, { SearchBarHandle } from "../../src/components/SearchBar";
 import { useAuth } from "../../src/context/AuthContext";
@@ -367,11 +368,7 @@ const MyRecipesPage = () => {
           recipeCounts={tagCounts}
         />
 
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
-            {error}
-          </div>
-        )}
+        {error && <AuthErrorBanner error={error} className="mb-6" />}
 
         {loading ? (
           <div className="flex justify-center items-center py-12">

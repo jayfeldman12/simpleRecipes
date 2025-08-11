@@ -17,6 +17,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useRef, useState } from "react";
+import AuthErrorBanner from "../../src/components/AuthErrorBanner";
 import SearchBar, { SearchBarHandle } from "../../src/components/SearchBar";
 import { useAuth } from "../../src/context/AuthContext";
 import { recipeAPI } from "../../src/services/api";
@@ -373,11 +374,7 @@ export default function RecipeList() {
           recipeCounts={tagCounts}
         />
 
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
-            {error}
-          </div>
-        )}
+        {error && <AuthErrorBanner error={error} className="mb-6" />}
 
         {filteredRecipes.length === 0 ? (
           <div className="bg-white p-8 rounded-lg shadow-md text-center">

@@ -40,7 +40,7 @@ export const generateToken = (id: string): string | null => {
 
   try {
     return jwt.sign({ id }, secret, {
-      expiresIn: "30d",
+      expiresIn: "5y",
     });
   } catch (error) {
     console.error("Error generating JWT token:", error);

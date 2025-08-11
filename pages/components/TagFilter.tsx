@@ -41,19 +41,22 @@ const TagFilter: React.FC<TagFilterProps> = ({
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // No tags to display
-  if (!tags || tags.length === 0) {
-    return null;
-  }
-
   // Sort tags by popularity (recipe count)
   const sortedTags = useMemo(() => {
+    if (!tags || tags.length === 0) {
+      return [] as Tag[];
+    }
     return [...tags].sort((a, b) => {
       const countA = recipeCounts[a._id] || 0;
       const countB = recipeCounts[b._id] || 0;
       return countB - countA; // Descending order
     });
   }, [tags, recipeCounts]);
+
+  // If, after sorting, there are no tags to display, render nothing.
+  if (sortedTags.length === 0) {
+    return null;
+  }
 
   // Determine which tags to display
   const displayTags = isExpanded ? sortedTags : sortedTags.slice(0, maxDisplay);
