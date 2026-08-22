@@ -1,16 +1,84 @@
+import {
+  closestCenter,
+  DndContext,
+  DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { useRouter } from "next/router";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import SortableRow from "../../../src/components/SortableRow";
 import { recipeAPI } from "../../../src/services/api";
 import {
   IngredientItem,
-  IngredientSection,
   IngredientType,
   InstructionItem,
   Recipe as RecipeType,
   Tag,
 } from "../../../src/types/recipe";
 import TagSelector from "../../components/TagSelector";
+
+/**
+ * Drag and drop needs a stable identity per row that survives reordering, but
+ * ingredients/instructions are stored as plain positional objects. While the
+ * form is open we tag each row with a client-only `_uid`, then strip those back
+ * out before saving so they never reach the database.
+ */
+interface EditableIngredientItem extends IngredientItem {
+  _uid: string;
+}
+
+interface EditableIngredientSection {
+  _uid: string;
+  sectionTitle: string;
+  ingredients: EditableIngredient[];
+}
+
+type EditableIngredient = EditableIngredientItem | EditableIngredientSection;
+
+interface EditableInstruction extends InstructionItem {
+  _uid: string;
+}
+
+let uidCounter = 0;
+const nextUid = () => `row-${++uidCounter}`;
+
+const withIngredientUids = (
+  ingredients: IngredientType[]
+): EditableIngredient[] =>
+  ingredients.map((ingredient) =>
+    "sectionTitle" in ingredient
+      ? {
+          _uid: nextUid(),
+          sectionTitle: ingredient.sectionTitle,
+          ingredients: withIngredientUids(ingredient.ingredients),
+        }
+      : { ...ingredient, _uid: nextUid() }
+  );
+
+const stripIngredientUids = (
+  ingredients: EditableIngredient[]
+): IngredientType[] =>
+  ingredients.map((ingredient) => {
+    if ("sectionTitle" in ingredient) {
+      return {
+        sectionTitle: ingredient.sectionTitle,
+        ingredients: stripIngredientUids(ingredient.ingredients),
+      };
+    }
+    const item: IngredientItem = { text: ingredient.text };
+    if (ingredient.optional) item.optional = true;
+    return item;
+  });
 
 export default function EditRecipe() {
   const router = useRouter();
@@ -23,13 +91,26 @@ export default function EditRecipe() {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    ingredients: [] as IngredientType[],
-    instructions: [] as InstructionItem[],
+    ingredients: [] as EditableIngredient[],
+    instructions: [] as EditableInstruction[],
     cookingTime: "",
     servings: "",
     imageUrl: "",
     tags: [] as Tag[],
   });
+
+  // Sensors for drag-to-reorder. The small distance constraint keeps taps and
+  // clicks on the handle from being treated as drags.
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   // Add refs object to store refs for textareas
   const textareaRefs = useRef<{ [key: number]: HTMLTextAreaElement }>({});
@@ -112,8 +193,11 @@ export default function EditRecipe() {
         setFormData({
           title: data.title,
           description: data.description,
-          ingredients: data.ingredients,
-          instructions: data.instructions,
+          ingredients: withIngredientUids(data.ingredients),
+          instructions: data.instructions.map((instruction) => ({
+            ...instruction,
+            _uid: nextUid(),
+          })),
           cookingTime: data.cookingTime?.toString() || "",
           servings: data.servings?.toString() || "",
           imageUrl: data.imageUrl || "",
@@ -172,6 +256,9 @@ export default function EditRecipe() {
       setLoading(true);
       await recipeAPI.updateRecipe(recipe._id as string, {
         ...formData,
+        // Drop the client-only row ids before persisting
+        ingredients: stripIngredientUids(formData.ingredients),
+        instructions: formData.instructions.map(({ text }) => ({ text })),
         cookingTime: formData.cookingTime
           ? parseInt(formData.cookingTime)
           : undefined,
@@ -189,9 +276,9 @@ export default function EditRecipe() {
   const handleIngredientChange = (index: number, value: string) => {
     const newIngredients = [...formData.ingredients];
     if ("text" in newIngredients[index]) {
-      (newIngredients[index] as IngredientItem).text = value;
+      (newIngredients[index] as EditableIngredientItem).text = value;
     } else if ("sectionTitle" in newIngredients[index]) {
-      (newIngredients[index] as IngredientSection).sectionTitle = value;
+      (newIngredients[index] as EditableIngredientSection).sectionTitle = value;
     }
     setFormData({ ...formData, ingredients: newIngredients });
   };
@@ -199,7 +286,7 @@ export default function EditRecipe() {
   const toggleIngredientOptional = (index: number) => {
     const newIngredients = [...formData.ingredients];
     if ("text" in newIngredients[index]) {
-      const ingredient = newIngredients[index] as IngredientItem;
+      const ingredient = newIngredients[index] as EditableIngredientItem;
       ingredient.optional = !ingredient.optional;
       setFormData({ ...formData, ingredients: newIngredients });
     }
@@ -211,11 +298,11 @@ export default function EditRecipe() {
     value: string
   ) => {
     const newIngredients = [...formData.ingredients];
-    const section = newIngredients[sectionIndex] as IngredientSection;
+    const section = newIngredients[sectionIndex] as EditableIngredientSection;
 
     if (section && "ingredients" in section && section.ingredients[itemIndex]) {
       if ("text" in section.ingredients[itemIndex]) {
-        (section.ingredients[itemIndex] as IngredientItem).text = value;
+        (section.ingredients[itemIndex] as EditableIngredientItem).text = value;
         setFormData({ ...formData, ingredients: newIngredients });
       }
     }
@@ -226,11 +313,13 @@ export default function EditRecipe() {
     itemIndex: number
   ) => {
     const newIngredients = [...formData.ingredients];
-    const section = newIngredients[sectionIndex] as IngredientSection;
+    const section = newIngredients[sectionIndex] as EditableIngredientSection;
 
     if (section && "ingredients" in section && section.ingredients[itemIndex]) {
       if ("text" in section.ingredients[itemIndex]) {
-        const subIngredient = section.ingredients[itemIndex] as IngredientItem;
+        const subIngredient = section.ingredients[
+          itemIndex
+        ] as EditableIngredientItem;
         subIngredient.optional = !subIngredient.optional;
         setFormData({ ...formData, ingredients: newIngredients });
       }
@@ -239,17 +328,17 @@ export default function EditRecipe() {
 
   const addSubIngredient = (sectionIndex: number) => {
     const newIngredients = [...formData.ingredients];
-    const section = newIngredients[sectionIndex] as IngredientSection;
+    const section = newIngredients[sectionIndex] as EditableIngredientSection;
 
     if (section && "ingredients" in section) {
-      section.ingredients.push({ text: "" });
+      section.ingredients.push({ text: "", _uid: nextUid() });
       setFormData({ ...formData, ingredients: newIngredients });
     }
   };
 
   const removeSubIngredient = (sectionIndex: number, itemIndex: number) => {
     const newIngredients = [...formData.ingredients];
-    const section = newIngredients[sectionIndex] as IngredientSection;
+    const section = newIngredients[sectionIndex] as EditableIngredientSection;
 
     if (section && "ingredients" in section) {
       section.ingredients = section.ingredients.filter(
@@ -286,7 +375,7 @@ export default function EditRecipe() {
   const addIngredient = () => {
     setFormData({
       ...formData,
-      ingredients: [...formData.ingredients, { text: "" }],
+      ingredients: [...formData.ingredients, { text: "", _uid: nextUid() }],
     });
   };
 
@@ -295,7 +384,7 @@ export default function EditRecipe() {
       ...formData,
       ingredients: [
         ...formData.ingredients,
-        { sectionTitle: "", ingredients: [] },
+        { sectionTitle: "", ingredients: [], _uid: nextUid() },
       ],
     });
   };
@@ -303,7 +392,7 @@ export default function EditRecipe() {
   const addInstruction = () => {
     setFormData({
       ...formData,
-      instructions: [...formData.instructions, { text: "" }],
+      instructions: [...formData.instructions, { text: "", _uid: nextUid() }],
     });
   };
 
@@ -320,8 +409,66 @@ export default function EditRecipe() {
   const addIngredientBeforeSection = (sectionIndex: number) => {
     const newIngredients = [...formData.ingredients];
     // Insert a new ingredient at the specified index
-    newIngredients.splice(sectionIndex, 0, { text: "" });
+    newIngredients.splice(sectionIndex, 0, { text: "", _uid: nextUid() });
     setFormData({ ...formData, ingredients: newIngredients });
+  };
+
+  // Reorder top-level ingredients (loose ingredients and whole sections)
+  const handleIngredientDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    setFormData((prev) => {
+      const oldIndex = prev.ingredients.findIndex((i) => i._uid === active.id);
+      const newIndex = prev.ingredients.findIndex((i) => i._uid === over.id);
+      if (oldIndex === -1 || newIndex === -1) return prev;
+      return {
+        ...prev,
+        ingredients: arrayMove(prev.ingredients, oldIndex, newIndex),
+      };
+    });
+  };
+
+  // Reorder the ingredients nested inside a single section
+  const handleSubIngredientDragEnd =
+    (sectionIndex: number) => (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+
+      setFormData((prev) => {
+        const section = prev.ingredients[sectionIndex];
+        if (!section || !("sectionTitle" in section)) return prev;
+
+        const oldIndex = section.ingredients.findIndex(
+          (i) => i._uid === active.id
+        );
+        const newIndex = section.ingredients.findIndex(
+          (i) => i._uid === over.id
+        );
+        if (oldIndex === -1 || newIndex === -1) return prev;
+
+        const newIngredients = [...prev.ingredients];
+        newIngredients[sectionIndex] = {
+          ...section,
+          ingredients: arrayMove(section.ingredients, oldIndex, newIndex),
+        };
+        return { ...prev, ingredients: newIngredients };
+      });
+    };
+
+  const handleInstructionDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    setFormData((prev) => {
+      const oldIndex = prev.instructions.findIndex((i) => i._uid === active.id);
+      const newIndex = prev.instructions.findIndex((i) => i._uid === over.id);
+      if (oldIndex === -1 || newIndex === -1) return prev;
+      return {
+        ...prev,
+        instructions: arrayMove(prev.instructions, oldIndex, newIndex),
+      };
+    });
   };
 
   if (loading) {
@@ -443,218 +590,300 @@ export default function EditRecipe() {
           </div>
 
           <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Ingredients
             </label>
-            <div className="space-y-3">
-              {formData.ingredients.map((ingredient, index) => (
-                <div key={index}>
-                  {/* Add ingredient button before a section */}
-                  {"sectionTitle" in ingredient &&
-                    index > 0 &&
-                    !("sectionTitle" in formData.ingredients[index - 1]) && (
-                      <div className="mb-2">
-                        <button
-                          type="button"
-                          onClick={() => addIngredientBeforeSection(index)}
-                          className="inline-flex items-center px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
-                        >
-                          <PlusIcon className="h-4 w-4 mr-1" />
-                          Add Ingredient
-                        </button>
-                      </div>
-                    )}
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <input
-                      type="text"
-                      value={
-                        "text" in ingredient
-                          ? ingredient.text
-                          : "sectionTitle" in ingredient
-                          ? ingredient.sectionTitle
-                          : ""
-                      }
-                      onChange={(e) =>
-                        handleIngredientChange(index, e.target.value)
-                      }
-                      className={`flex-1 px-3 sm:px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        "sectionTitle" in ingredient
-                          ? "font-bold bg-gray-50"
-                          : ""
-                      }`}
-                      placeholder={
-                        "text" in ingredient
-                          ? `Ingredient ${index + 1}`
-                          : "Section title"
-                      }
-                      required
-                    />
-                    <div className="flex items-center justify-between sm:justify-start">
-                      {"text" in ingredient && (
-                        <div className="flex items-center mr-2">
-                          <label className="inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={
-                                "optional" in ingredient
-                                  ? !!ingredient.optional
-                                  : false
-                              }
-                              onChange={() => toggleIngredientOptional(index)}
-                              className="form-checkbox h-4 w-4 text-blue-600 transition duration-150 ease-in-out"
-                            />
-                            <span className="ml-2 text-xs text-gray-600">
-                              Optional
-                            </span>
-                          </label>
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => removeIngredient(index)}
-                        className="px-3 py-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+            <p className="text-xs text-gray-500 mb-2">
+              Drag a handle to reorder, or focus it and use the arrow keys.
+            </p>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleIngredientDragEnd}
+            >
+              <SortableContext
+                items={formData.ingredients.map((i) => i._uid)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-3">
+                  {formData.ingredients.map((ingredient, index) => (
+                    <React.Fragment key={ingredient._uid}>
+                      {/* Add ingredient button before a section */}
+                      {"sectionTitle" in ingredient &&
+                        index > 0 &&
+                        !(
+                          "sectionTitle" in formData.ingredients[index - 1]
+                        ) && (
+                          <div>
+                            <button
+                              type="button"
+                              onClick={() => addIngredientBeforeSection(index)}
+                              className="inline-flex items-center px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+                            >
+                              <PlusIcon className="h-4 w-4 mr-1" />
+                              Add Ingredient
+                            </button>
+                          </div>
+                        )}
+                      <SortableRow
+                        id={ingredient._uid}
+                        label={
+                          "sectionTitle" in ingredient
+                            ? `Reorder section ${
+                                ingredient.sectionTitle || index + 1
+                              }`
+                            : `Reorder ingredient ${index + 1}`
+                        }
                       >
-                        <TrashIcon className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Sub-ingredients for sections */}
-                  {"sectionTitle" in ingredient && (
-                    <div className="ml-3 sm:ml-6 mt-2 space-y-2">
-                      <div className="text-xs text-gray-500 mb-1">
-                        Section Ingredients:
-                      </div>
-                      {ingredient.ingredients.map((subIngredient, subIndex) => (
-                        <div
-                          key={subIndex}
-                          className="flex flex-col sm:flex-row gap-2"
-                        >
+                        <div className="flex flex-col sm:flex-row gap-2">
                           <input
                             type="text"
                             value={
-                              "text" in subIngredient ? subIngredient.text : ""
+                              "text" in ingredient
+                                ? ingredient.text
+                                : "sectionTitle" in ingredient
+                                  ? ingredient.sectionTitle
+                                  : ""
                             }
                             onChange={(e) =>
-                              handleSubIngredientChange(
-                                index,
-                                subIndex,
-                                e.target.value
-                              )
+                              handleIngredientChange(index, e.target.value)
                             }
-                            className="flex-1 px-3 py-1 text-sm rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder={`Sub-ingredient ${subIndex + 1}`}
+                            className={`flex-1 px-3 sm:px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                              "sectionTitle" in ingredient
+                                ? "font-bold bg-gray-50"
+                                : ""
+                            }`}
+                            placeholder={
+                              "text" in ingredient
+                                ? `Ingredient ${index + 1}`
+                                : "Section title"
+                            }
+                            required
                           />
                           <div className="flex items-center justify-between sm:justify-start">
-                            {"text" in subIngredient && (
+                            {"text" in ingredient && (
                               <div className="flex items-center mr-2">
                                 <label className="inline-flex items-center cursor-pointer">
                                   <input
                                     type="checkbox"
                                     checked={
-                                      "optional" in subIngredient
-                                        ? !!subIngredient.optional
+                                      "optional" in ingredient
+                                        ? !!ingredient.optional
                                         : false
                                     }
                                     onChange={() =>
-                                      toggleSubIngredientOptional(
-                                        index,
-                                        subIndex
-                                      )
+                                      toggleIngredientOptional(index)
                                     }
-                                    className="form-checkbox h-3 w-3 text-blue-600 transition duration-150 ease-in-out"
+                                    className="form-checkbox h-4 w-4 text-blue-600 transition duration-150 ease-in-out"
                                   />
-                                  <span className="ml-1 text-xs text-gray-600">
-                                    Opt
+                                  <span className="ml-2 text-xs text-gray-600">
+                                    Optional
                                   </span>
                                 </label>
                               </div>
                             )}
                             <button
                               type="button"
-                              onClick={() =>
-                                removeSubIngredient(index, subIndex)
-                              }
-                              className="px-2 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                              onClick={() => removeIngredient(index)}
+                              className="px-3 py-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
                             >
-                              <TrashIcon className="h-4 w-4" />
+                              <TrashIcon className="h-5 w-5" />
                             </button>
                           </div>
                         </div>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => addSubIngredient(index)}
-                        className="inline-flex items-center px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
-                      >
-                        <PlusIcon className="h-4 w-4 mr-1" />
-                        Add Sub-ingredient
-                      </button>
-                    </div>
-                  )}
+
+                        {/* Sub-ingredients for sections */}
+                        {"sectionTitle" in ingredient && (
+                          <div className="ml-3 sm:ml-6 mt-2 space-y-2">
+                            <div className="text-xs text-gray-500 mb-1">
+                              Section Ingredients:
+                            </div>
+                            <DndContext
+                              sensors={sensors}
+                              collisionDetection={closestCenter}
+                              onDragEnd={handleSubIngredientDragEnd(index)}
+                            >
+                              <SortableContext
+                                items={ingredient.ingredients.map(
+                                  (i) => i._uid
+                                )}
+                                strategy={verticalListSortingStrategy}
+                              >
+                                <div className="space-y-2">
+                                  {ingredient.ingredients.map(
+                                    (subIngredient, subIndex) => (
+                                      <SortableRow
+                                        key={subIngredient._uid}
+                                        id={subIngredient._uid}
+                                        compact
+                                        label={`Reorder sub-ingredient ${
+                                          subIndex + 1
+                                        }`}
+                                      >
+                                        <div className="flex flex-col sm:flex-row gap-2">
+                                          <input
+                                            type="text"
+                                            value={
+                                              "text" in subIngredient
+                                                ? subIngredient.text
+                                                : ""
+                                            }
+                                            onChange={(e) =>
+                                              handleSubIngredientChange(
+                                                index,
+                                                subIndex,
+                                                e.target.value
+                                              )
+                                            }
+                                            className="flex-1 px-3 py-1 text-sm rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            placeholder={`Sub-ingredient ${
+                                              subIndex + 1
+                                            }`}
+                                          />
+                                          <div className="flex items-center justify-between sm:justify-start">
+                                            {"text" in subIngredient && (
+                                              <div className="flex items-center mr-2">
+                                                <label className="inline-flex items-center cursor-pointer">
+                                                  <input
+                                                    type="checkbox"
+                                                    checked={
+                                                      "optional" in
+                                                      subIngredient
+                                                        ? !!subIngredient.optional
+                                                        : false
+                                                    }
+                                                    onChange={() =>
+                                                      toggleSubIngredientOptional(
+                                                        index,
+                                                        subIndex
+                                                      )
+                                                    }
+                                                    className="form-checkbox h-3 w-3 text-blue-600 transition duration-150 ease-in-out"
+                                                  />
+                                                  <span className="ml-1 text-xs text-gray-600">
+                                                    Opt
+                                                  </span>
+                                                </label>
+                                              </div>
+                                            )}
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                removeSubIngredient(
+                                                  index,
+                                                  subIndex
+                                                )
+                                              }
+                                              className="px-2 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                                            >
+                                              <TrashIcon className="h-4 w-4" />
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </SortableRow>
+                                    )
+                                  )}
+                                </div>
+                              </SortableContext>
+                            </DndContext>
+                            <button
+                              type="button"
+                              onClick={() => addSubIngredient(index)}
+                              className="inline-flex items-center px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+                            >
+                              <PlusIcon className="h-4 w-4 mr-1" />
+                              Add Sub-ingredient
+                            </button>
+                          </div>
+                        )}
+                      </SortableRow>
+                    </React.Fragment>
+                  ))}
                 </div>
-              ))}
-              <div className="flex flex-wrap gap-2 mt-4">
-                <button
-                  type="button"
-                  onClick={addIngredient}
-                  className="inline-flex items-center px-3 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
-                >
-                  <PlusIcon className="h-5 w-5 mr-1" />
-                  Add Ingredient
-                </button>
-                <button
-                  type="button"
-                  onClick={addIngredientSection}
-                  className="inline-flex items-center px-3 py-2 text-sm text-green-600 hover:text-green-800 hover:bg-green-50 rounded transition-colors"
-                >
-                  <PlusIcon className="h-5 w-5 mr-1" />
-                  Add Section
-                </button>
-              </div>
+              </SortableContext>
+            </DndContext>
+            <div className="flex flex-wrap gap-2 mt-4">
+              <button
+                type="button"
+                onClick={addIngredient}
+                className="inline-flex items-center px-3 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+              >
+                <PlusIcon className="h-5 w-5 mr-1" />
+                Add Ingredient
+              </button>
+              <button
+                type="button"
+                onClick={addIngredientSection}
+                className="inline-flex items-center px-3 py-2 text-sm text-green-600 hover:text-green-800 hover:bg-green-50 rounded transition-colors"
+              >
+                <PlusIcon className="h-5 w-5 mr-1" />
+                Add Section
+              </button>
             </div>
           </div>
 
           <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Instructions
             </label>
-            <div className="space-y-3">
-              {formData.instructions.map((instruction, index) => (
-                <div key={index} className="flex flex-col sm:flex-row gap-2">
-                  <textarea
-                    value={instruction.text}
-                    onChange={(e) =>
-                      handleInstructionChange(index, e.target.value)
-                    }
-                    ref={(el) => {
-                      if (el) textareaRefs.current[index] = el;
-                    }}
-                    className={`flex-1 px-3 sm:px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isMobile ? "overflow-auto" : "overflow-hidden"
-                    }`}
-                    placeholder={`Step ${index + 1}`}
-                    rows={isMobile ? (textareaHeights[index] > 60 ? 3 : 2) : 2}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeInstruction(index)}
-                    className="self-start sm:self-center px-3 py-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
-                  >
-                    <TrashIcon className="h-5 w-5" />
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={addInstruction}
-                className="inline-flex items-center px-3 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+            <p className="text-xs text-gray-500 mb-2">
+              Drag a handle to reorder, or focus it and use the arrow keys.
+            </p>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleInstructionDragEnd}
+            >
+              <SortableContext
+                items={formData.instructions.map((i) => i._uid)}
+                strategy={verticalListSortingStrategy}
               >
-                <PlusIcon className="h-5 w-5 mr-1" />
-                Add Instruction
-              </button>
-            </div>
+                <div className="space-y-3">
+                  {formData.instructions.map((instruction, index) => (
+                    <SortableRow
+                      key={instruction._uid}
+                      id={instruction._uid}
+                      label={`Reorder step ${index + 1}`}
+                    >
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <textarea
+                          value={instruction.text}
+                          onChange={(e) =>
+                            handleInstructionChange(index, e.target.value)
+                          }
+                          ref={(el) => {
+                            if (el) textareaRefs.current[index] = el;
+                          }}
+                          className={`flex-1 px-3 sm:px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            isMobile ? "overflow-auto" : "overflow-hidden"
+                          }`}
+                          placeholder={`Step ${index + 1}`}
+                          rows={
+                            isMobile ? (textareaHeights[index] > 60 ? 3 : 2) : 2
+                          }
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeInstruction(index)}
+                          className="self-start sm:self-center px-3 py-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                        >
+                          <TrashIcon className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </SortableRow>
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+            <button
+              type="button"
+              onClick={addInstruction}
+              className="inline-flex items-center mt-3 px-3 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+            >
+              <PlusIcon className="h-5 w-5 mr-1" />
+              Add Instruction
+            </button>
           </div>
 
           <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-2 sm:px-4 py-2 sm:py-3 flex justify-end gap-2 sm:gap-4 z-10 shadow-md">
