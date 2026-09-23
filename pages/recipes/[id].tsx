@@ -3,12 +3,15 @@ import {
   ArrowsPointingInIcon,
   ArrowsPointingOutIcon,
   ArrowTopRightOnSquareIcon,
+  CheckIcon,
   ClockIcon,
   HeartIcon,
   PencilIcon,
+  ShareIcon,
   TrashIcon,
   UsersIcon,
 } from "@heroicons/react/24/outline";
+import { GetServerSideProps } from "next";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -16,8 +19,26 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../src/context/AuthContext";
 import { recipeAPI } from "../../src/services/api";
 import { IngredientItem, IngredientType, Recipe } from "../../src/types/recipe";
+import RecipeModel from "../api/models/Recipe";
+import dbConnect from "../api/utils/dbConnect";
 import { favoritesUpdated } from "../components/RecipeCard";
 import TagBadge from "../components/TagBadge";
+
+// Recipes without a real photo store this sentinel instead of a usable URL
+const PLACEHOLDER_IMAGE = "default-recipe.jpg";
+
+// Rendered server-side so link unfurlers - which do not run JS - can read the
+// recipe's title, description and hero image.
+interface RecipeMeta {
+  title: string;
+  description: string;
+  imageUrl: string | null;
+  url: string;
+}
+
+interface RecipeDetailProps {
+  meta: RecipeMeta | null;
+}
 
 // Helper component to recursively render ingredients
 const RenderIngredients = ({
@@ -69,7 +90,7 @@ const RenderIngredients = ({
   );
 };
 
-export default function RecipeDetail() {
+export default function RecipeDetail({ meta }: RecipeDetailProps) {
   const router = useRouter();
   const { id } = router.query;
   const { user } = useAuth();
@@ -82,6 +103,9 @@ export default function RecipeDetail() {
     "ingredients" | "instructions" | null
   >(null);
   const [imageError, setImageError] = useState(false);
+  const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "error">(
+    "idle"
+  );
 
   // Generate a consistent color based on recipe title
   const getGradientColors = (title: string) => {
@@ -100,12 +124,25 @@ export default function RecipeDetail() {
   };
 
   useEffect(() => {
-    // Get the previous page from the query parameter
-    const from = router.query.from as string;
-    if (from) {
+    // router.query is empty on the first render of a dynamic route
+    if (!router.isReady) return;
+
+    const from = router.query.from;
+    if (typeof from !== "string" || !from) return;
+
+    // Only trust internal paths - "//host" or an absolute URL would turn the
+    // back link into an open redirect.
+    if (from.startsWith("/") && !from.startsWith("//")) {
       setPreviousPage(from);
     }
-  }, [router.query.from]);
+
+    // Hold the origin page in local state and drop it from the URL, so the
+    // address bar - and anything shared from it - stays clean.
+    const { from: _from, ...query } = router.query;
+    router.replace({ pathname: router.pathname, query }, undefined, {
+      shallow: true,
+    });
+  }, [router.isReady, router.query.from]);
 
   useEffect(() => {
     const fetchRecipe = async () => {
@@ -205,6 +242,43 @@ export default function RecipeDetail() {
     }
   };
 
+  const handleShare = async () => {
+    if (!recipe) return;
+
+    const url = `${window.location.origin}/recipes/${recipe._id}`;
+
+    // Native share sheet on mobile and supported desktop browsers
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: recipe.title,
+          text: recipe.description,
+          url,
+        });
+        return;
+      } catch (err) {
+        // Dismissing the share sheet is not an error worth reporting
+        if ((err as Error)?.name === "AbortError") return;
+      }
+    }
+
+    // Otherwise fall back to copying the link
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareStatus("copied");
+    } catch (err) {
+      console.error("Failed to share recipe:", err);
+      setShareStatus("error");
+    }
+  };
+
+  // Return the share button to its default label after a moment
+  useEffect(() => {
+    if (shareStatus === "idle") return;
+    const timer = setTimeout(() => setShareStatus("idle"), 2000);
+    return () => clearTimeout(timer);
+  }, [shareStatus]);
+
   const toggleExpand = (section: "ingredients" | "instructions") => {
     if (expandedSection === section) {
       setExpandedSection(null); // Collapse if already expanded
@@ -217,36 +291,66 @@ export default function RecipeDetail() {
     setImageError(true);
   };
 
+  // Prefer the server-rendered values: they are present in the very first HTML
+  // response, which is all a link unfurler ever sees.
+  const pageTitle = meta?.title || recipe?.title || "Recipe";
+  const pageDescription = meta?.description || recipe?.description || "";
+
+  const head = (
+    <Head>
+      <title>{`${pageTitle} | Simple Recipes`}</title>
+      <meta name="description" content={pageDescription} />
+      <meta property="og:site_name" content="Simple Recipes" />
+      <meta property="og:type" content="article" />
+      <meta property="og:title" content={pageTitle} />
+      <meta property="og:description" content={pageDescription} />
+      {meta?.url && <meta property="og:url" content={meta.url} />}
+      {meta?.imageUrl && <meta property="og:image" content={meta.imageUrl} />}
+      {meta?.imageUrl && <meta property="og:image:alt" content={pageTitle} />}
+      <meta
+        name="twitter:card"
+        content={meta?.imageUrl ? "summary_large_image" : "summary"}
+      />
+      <meta name="twitter:title" content={pageTitle} />
+      <meta name="twitter:description" content={pageDescription} />
+      {meta?.imageUrl && <meta name="twitter:image" content={meta.imageUrl} />}
+    </Head>
+  );
+
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
+      <>
+        {head}
+        <div className="flex justify-center items-center min-h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        </div>
+      </>
     );
   }
 
   if (error || !recipe) {
     return (
-      <div className="container max-w-4xl mx-auto my-8 px-4">
-        <Link href="/" className="text-blue-500 hover:underline font-medium">
-          ← Back to Home
-        </Link>
-        <div className="text-center text-red-500 my-12">
-          {error || "Recipe not found"}
+      <>
+        {head}
+        <div className="container max-w-4xl mx-auto my-8 px-4">
+          <Link href="/" className="text-blue-500 hover:underline font-medium">
+            ← Back to Home
+          </Link>
+          <div className="text-center text-red-500 my-12">
+            {error || "Recipe not found"}
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   // Get placeholder gradient for this recipe
   const placeholderGradient = getGradientColors(recipe.title || "Recipe");
+  const isOwner = !!(user && recipe.user && user._id === recipe.user._id);
 
   return (
     <>
-      <Head>
-        <title>{recipe.title} | Simple Recipes</title>
-        <meta name="description" content={recipe.description} />
-      </Head>
+      {head}
 
       {/* Desktop Version */}
       <div className="container max-w-6xl mx-auto my-8 px-4 md:block hidden">
@@ -310,22 +414,40 @@ export default function RecipeDetail() {
                 <h1 className="text-3xl font-bold text-gray-800">
                   {recipe.title}
                 </h1>
-                {user && recipe.user && user._id === recipe.user._id && (
-                  <div className="flex gap-2">
-                    <Link
-                      href={`/recipes/edit/${recipe._id}`}
-                      className="p-2 text-blue-600 hover:text-blue-800"
-                    >
-                      <PencilIcon className="h-6 w-6" />
-                    </Link>
-                    <button
-                      onClick={handleDelete}
-                      className="p-2 text-red-600 hover:text-red-800"
-                    >
-                      <TrashIcon className="h-6 w-6" />
-                    </button>
-                  </div>
-                )}
+                <div className="flex gap-2 items-center shrink-0">
+                  <button
+                    onClick={handleShare}
+                    title={
+                      shareStatus === "copied"
+                        ? "Link copied"
+                        : "Share this recipe"
+                    }
+                    aria-label="Share this recipe"
+                    className="p-2 text-gray-600 hover:text-gray-800"
+                  >
+                    {shareStatus === "copied" ? (
+                      <CheckIcon className="h-6 w-6 text-green-600" />
+                    ) : (
+                      <ShareIcon className="h-6 w-6" />
+                    )}
+                  </button>
+                  {isOwner && (
+                    <>
+                      <Link
+                        href={`/recipes/edit/${recipe._id}`}
+                        className="p-2 text-blue-600 hover:text-blue-800"
+                      >
+                        <PencilIcon className="h-6 w-6" />
+                      </Link>
+                      <button
+                        onClick={handleDelete}
+                        className="p-2 text-red-600 hover:text-red-800"
+                      >
+                        <TrashIcon className="h-6 w-6" />
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
               <p className="text-gray-600 mb-4">{recipe.description}</p>
 
@@ -518,19 +640,40 @@ export default function RecipeDetail() {
 
         {/* Footer Actions */}
         <div className="bg-white border-t border-gray-200 py-2 px-3 z-10">
-          <div className="flex justify-center">
+          <div
+            className={`grid gap-2 ${
+              recipe.sourceUrl ? "grid-cols-2" : "grid-cols-1"
+            }`}
+          >
             {recipe.sourceUrl && (
               <a
                 href={recipe.sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="bg-blue-100 text-blue-600 py-1 px-4 rounded-md text-center text-sm w-auto mx-auto"
+                className="bg-blue-100 text-blue-600 py-1 px-3 rounded-md text-center text-sm"
               >
                 View Original
               </a>
             )}
+            <button
+              onClick={handleShare}
+              aria-label="Share this recipe"
+              className="bg-blue-100 text-blue-600 py-1 px-3 rounded-md text-center text-sm flex items-center justify-center gap-1"
+            >
+              {shareStatus === "copied" ? (
+                <>
+                  <CheckIcon className="h-4 w-4 text-green-600" />
+                  Copied
+                </>
+              ) : (
+                <>
+                  <ShareIcon className="h-4 w-4" />
+                  Share
+                </>
+              )}
+            </button>
           </div>
-          {user && recipe.user && user._id === recipe.user._id && (
+          {isOwner && (
             <div className="grid grid-cols-2 gap-2 mt-2">
               <Link
                 href={`/recipes/edit/${recipe._id}`}
@@ -551,3 +694,73 @@ export default function RecipeDetail() {
     </>
   );
 }
+
+// Resolve whatever is stored on the recipe into an absolute, publicly
+// reachable image URL. Unfurlers reject relative paths.
+const toAbsoluteImageUrl = (
+  imageUrl: string | undefined,
+  origin: string
+): string | null => {
+  if (!imageUrl || imageUrl === PLACEHOLDER_IMAGE) {
+    // No photo: the page shows a generated gradient, so fall back to the
+    // app icon rather than advertising an image that does not exist.
+    return origin ? `${origin}/icon.png` : null;
+  }
+
+  if (/^https?:\/\//.test(imageUrl)) return imageUrl;
+  if (!origin) return null;
+
+  return `${origin}${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`;
+};
+
+const truncate = (text: string, max = 200) =>
+  text.length > max ? `${text.slice(0, max - 1).trimEnd()}\u2026` : text;
+
+// The recipe body is still fetched on the client (it needs the user's token to
+// resolve favourite state). This only reads the handful of fields the social
+// preview needs, so they are in the HTML before any JS runs.
+export const getServerSideProps: GetServerSideProps<RecipeDetailProps> = async ({
+  params,
+  req,
+}) => {
+  const id = params?.id;
+
+  const forwardedProto = req.headers["x-forwarded-proto"];
+  const proto = (
+    Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto || "http"
+  ).split(",")[0];
+  const host = req.headers.host;
+  const origin = host ? `${proto}://${host}` : "";
+
+  if (typeof id !== "string") {
+    return { props: { meta: null } };
+  }
+
+  try {
+    await dbConnect();
+
+    const recipe = await RecipeModel.findById(id)
+      .select("title description imageUrl")
+      .lean();
+
+    if (!recipe) {
+      return { props: { meta: null } };
+    }
+
+    return {
+      props: {
+        meta: {
+          title: recipe.title || "Recipe",
+          description: truncate(recipe.description || ""),
+          imageUrl: toAbsoluteImageUrl(recipe.imageUrl, origin),
+          url: origin ? `${origin}/recipes/${id}` : "",
+        },
+      },
+    };
+  } catch (err) {
+    // A bad id or a database hiccup should not take the page down - the
+    // client-side fetch still renders the recipe (or its error state).
+    console.error("Failed to load recipe metadata:", err);
+    return { props: { meta: null } };
+  }
+};
